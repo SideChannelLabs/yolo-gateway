@@ -1,0 +1,144 @@
+project:
+  name: example-project
+  description: Example project manifest showing gateway policy configuration
+
+aws:
+  accounts:
+    - account: "123456789012"
+      region: us-east-1
+      name: dev
+      sso_role: AdministratorAccess
+      services:
+        s3:
+          - ListBuckets
+          - GetObject
+          - PutObject
+          - DeleteObject
+        dynamodb:
+          - Scan
+          - Query
+          - GetItem
+          - PutItem
+          - UpdateItem
+          - DeleteItem
+        lambda:
+          - GetFunction
+          - ListFunctions
+          - InvokeFunction
+        logs:
+          - GetLogEvents
+          - DescribeLogGroups
+          - DescribeLogStreams
+        secretsmanager:
+          - GetSecretValue
+        # Constrained example — only allow specific CodeBuild projects
+        codebuild:
+          actions:
+            - StartBuild
+            - BatchGetBuilds
+          constraints:
+            projectName:
+              - pipeline-factory
+
+    - account: "987654321098"
+      region: us-east-1
+      name: prod
+      sso_role: ReadOnlyAccess
+      services:
+        # Prod is read-only
+        s3:
+          - ListBuckets
+          - GetObject
+        dynamodb:
+          - Scan
+          - Query
+          - GetItem
+        lambda:
+          - GetFunction
+          - ListFunctions
+        logs:
+          - GetLogEvents
+          - DescribeLogGroups
+          - DescribeLogStreams
+
+git:
+  push: true
+  repos:
+    - name: my-org/my-backend
+      branches:
+        allow:
+          - "feature/*"
+          - "fix/*"
+          - "hotfix/*"
+        deny:
+          - main
+          - master
+    - name: my-org/my-frontend
+      branches:
+        allow:
+          - "feature/*"
+          - "fix/*"
+        deny:
+          - main
+    - name: my-org/my-infra
+      branches:
+        allow:
+          - "feature/*"
+          - "infra/*"
+        deny:
+          - main
+
+# ── Slack ──────────────────────────────────────────
+# Token: SLACK_BOT_TOKEN env var (not in manifest)
+slack:
+  access: readwrite  # or "read" or "write"
+  actions:
+    - chat.postMessage
+    - conversations.list
+    - conversations.history
+    - conversations.info
+    - reactions.add
+    - users.list
+    - users.info
+  channels:
+    allow:
+      - "#engineering"
+      - "#deployments"
+      - "#alerts-*"
+    deny:
+      - "#executive"
+      - "#finance-*"
+
+# ── Gmail ──────────────────────────────────────────
+# Token: GMAIL_ACCESS_TOKEN env var (not in manifest)
+gmail:
+  access: readwrite  # or "read" or "write"
+  actions:
+    - messages.list
+    - messages.get
+    - messages.send
+    - labels.list
+    - threads.list
+    - threads.get
+    - profile
+  recipients:
+    allow:
+      - "*@mycompany.com"
+      - "team@mycompany.com"
+    # Note: if no deny list, only allow-listed recipients are permitted.
+    # The allow list acts as a whitelist — anything not matching is denied.
+
+# Optional: custom reminder injected on every prompt submission
+hook_message: |
+  ═══ PROJECT RULES ═══
+  - All AWS access via gateway /aws endpoint
+  - All git push via gateway /git/push endpoint
+  - Feature branches only — never push to main
+  - Dev account: full access | Prod account: read-only
+  ═════════════════════
+
+# Optional: context injected into Claude's CLAUDE.md
+claude_md: |
+  This project uses Python 3.12 Lambdas with DynamoDB.
+  Use feature branches and create PRs for all changes.
+  Dev account has full access, prod is read-only.

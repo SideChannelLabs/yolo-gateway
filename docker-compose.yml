@@ -1,0 +1,39 @@
+services:
+  gateway:
+    build: ./gateway
+    ports:
+      - "127.0.0.1:9000:9000"
+    volumes:
+      # Host AWS credentials (read-only — gateway uses SSO tokens)
+      - ${HOME}/.aws:/root/.aws-host:ro
+      # Host SSH keys for git operations (read-only)
+      - ${HOME}/.ssh:/root/.ssh-host:ro
+      # Project manifests (YAML policy files)
+      - ./projects:/projects:ro
+      # Shared workspace for cloned repos
+      - ./workspace:/workspace
+      # Persistent audit database
+      - yolo-audit:/data
+    environment:
+      - YOLO_PROJECT_MANIFEST=${YOLO_PROJECT_MANIFEST:-}
+      - YOLO_API_KEYS=${YOLO_API_KEYS:-}
+      - YOLO_AUDIT_DB=/data/audit.db
+      - YOLO_PROJECTS_DIR=/projects
+      - YOLO_WORKSPACE=/workspace
+      - AWS_CONFIG_FILE=/root/.aws-host/config
+      - BITBUCKET_TOKEN=${BITBUCKET_TOKEN:-}
+      - BITBUCKET_USERNAME=${BITBUCKET_USERNAME:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - TELEGRAM_THREAD_ID=${TELEGRAM_THREAD_ID:-}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
+      - GMAIL_ACCESS_TOKEN=${GMAIL_ACCESS_TOKEN:-}
+    networks:
+      - yolo-net
+
+volumes:
+  yolo-audit:
+
+networks:
+  yolo-net:
+    driver: bridge

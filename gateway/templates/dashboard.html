@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO Gateway Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: #0d1117; color: #c9d1d9; }
+        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 20px; color: #58a6ff; }
+        .header .project { color: #8b949e; font-size: 14px; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        /* Stats Bar */
+        .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+        .stat-card .label { color: #8b949e; font-size: 12px; text-transform: uppercase; }
+        .stat-card .value { font-size: 28px; font-weight: 600; margin-top: 4px; }
+        .stat-card .value.green { color: #3fb950; }
+        .stat-card .value.red { color: #f85149; }
+        .stat-card .value.yellow { color: #d29922; }
+        .stat-card .value.blue { color: #58a6ff; }
+
+        /* SSO Status */
+        .sso-bar { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+        .sso-account { display: flex; align-items: center; gap: 8px; }
+        .sso-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .sso-dot.active { background: #3fb950; }
+        .sso-dot.expired { background: #f85149; }
+        .sso-dot.logging_in { background: #d29922; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid #30363d; }
+        .tab { padding: 12px 20px; cursor: pointer; color: #8b949e; border-bottom: 2px solid transparent; transition: all 0.2s; }
+        .tab:hover { color: #c9d1d9; }
+        .tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+
+        /* Table */
+        .table-container { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #0d1117; text-align: left; padding: 12px 16px; color: #8b949e; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #30363d; }
+        td { padding: 10px 16px; border-bottom: 1px solid #21262d; font-size: 13px; }
+        tr:hover { background: #1c2128; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .badge.allowed { background: #0d2818; color: #3fb950; }
+        .badge.denied { background: #3d1114; color: #f85149; }
+        .badge.error { background: #3d1114; color: #f85149; }
+        .badge.sso_expired { background: #3b2607; color: #d29922; }
+
+        /* Filters */
+        .filters { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+        .filters select, .filters input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
+        .filters input { min-width: 250px; }
+        .btn { background: #238636; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .btn:hover { background: #2ea043; }
+        .btn.secondary { background: #30363d; }
+        .btn.secondary:hover { background: #484f58; }
+
+        /* Detail Modal */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; }
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 90%; max-width: 800px; max-height: 80vh; overflow-y: auto; padding: 24px; z-index: 101; }
+        .modal h2 { margin-bottom: 16px; color: #58a6ff; }
+        .modal pre { background: #0d1117; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+        .modal .close { position: absolute; top: 16px; right: 16px; cursor: pointer; color: #8b949e; font-size: 24px; }
+
+        /* Service breakdown */
+        .breakdown { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 16px; }
+        .breakdown-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+        .breakdown-bar { height: 8px; background: #58a6ff; border-radius: 4px; min-width: 20px; }
+
+        .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>YOLO Gateway</h1>
+        <div class="project" id="project-name">Loading...</div>
+    </div>
+
+    <div class="container">
+        <!-- Stats -->
+        <div class="stats-bar" id="stats-bar"></div>
+
+        <!-- SSO Status -->
+        <div class="sso-bar" id="sso-bar">
+            <strong>SSO:</strong>
+            <span id="sso-accounts">Checking...</span>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" data-tab="requests">Requests</div>
+            <div class="tab" data-tab="manifests">Manifests</div>
+        </div>
+
+        <!-- Requests Tab -->
+        <div id="tab-requests">
+            <div class="filters">
+                <select id="filter-decision">
+                    <option value="">All Decisions</option>
+                    <option value="ALLOWED">Allowed</option>
+                    <option value="DENIED">Denied</option>
+                    <option value="ERROR">Error</option>
+                    <option value="SSO_EXPIRED">SSO Expired</option>
+                </select>
+                <input type="text" id="filter-search" placeholder="Search actions, bodies...">
+                <button class="btn secondary" onclick="loadLogs()">Refresh</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Decision</th>
+                            <th>Action</th>
+                            <th>Status</th>
+                            <th>Response Time</th>
+                            <th>Project</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body"></tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+
+        <!-- Manifests Tab -->
+        <div id="tab-manifests" style="display:none;">
+            <div id="manifests-list"></div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title">Request Detail</h2>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentOffset = 0;
+        const PAGE_SIZE = 50;
+
+        // XSS protection — escape HTML entities in user-controlled data
+        function esc(str) {
+            if (str === null || str === undefined) return '';
+            const div = document.createElement('div');
+            div.textContent = String(str);
+            return div.innerHTML;
+        }
+
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelectorAll('[id^="tab-"]').forEach(p => p.style.display = 'none');
+                document.getElementById('tab-' + tab.dataset.tab).style.display = '';
+                if (tab.dataset.tab === 'manifests') loadManifests();
+            });
+        });
+
+        async function loadStats() {
+            try {
+                const resp = await fetch('/api/stats');
+                const data = await resp.json();
+                document.getElementById('project-name').textContent = data.project || 'No active project';
+
+                document.getElementById('stats-bar').innerHTML = `
+                    <div class="stat-card"><div class="label">Total Requests</div><div class="value blue">${data.total_requests}</div></div>
+                    <div class="stat-card"><div class="label">Last Hour</div><div class="value green">${data.last_hour}</div></div>
+                    <div class="stat-card"><div class="label">Denied (1h)</div><div class="value red">${data.denied_last_hour}</div></div>
+                    <div class="stat-card"><div class="label">Errors (1h)</div><div class="value red">${data.errors_last_hour}</div></div>
+                    <div class="stat-card"><div class="label">Avg Response</div><div class="value">${data.avg_response_ms}ms</div></div>
+                `;
+
+                // SSO
+                const sso = data.sso_status || {};
+                const accounts = sso.accounts || [];
+                if (accounts.length === 0) {
+                    document.getElementById('sso-accounts').textContent = 'No accounts configured';
+                } else {
+                    document.getElementById('sso-accounts').innerHTML = accounts.map(a =>
+                        `<span class="sso-account"><span class="sso-dot ${a.status}"></span>${a.name || a.account} (${a.status})</span>`
+                    ).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load stats:', e);
+            }
+        }
+
+        async function loadLogs() {
+            const decision = document.getElementById('filter-decision').value;
+            const search = document.getElementById('filter-search').value;
+            let url = `/api/logs?limit=${PAGE_SIZE}&offset=${currentOffset}`;
+            if (decision) url += `&decision=${decision}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+
+            try {
+                const resp = await fetch(url);
+                const logs = await resp.json();
+                const tbody = document.getElementById('logs-body');
+                tbody.innerHTML = logs.map(log => `
+                    <tr onclick="showDetail(${parseInt(log.id)})" style="cursor:pointer">
+                        <td>${esc(new Date(log.timestamp).toLocaleString())}</td>
+                        <td><span class="badge ${esc(log.decision.toLowerCase())}">${esc(log.decision)}</span></td>
+                        <td>${esc(log.action || log.request_path)}</td>
+                        <td>${esc(log.response_status || '-')}</td>
+                        <td>${log.response_time_ms ? esc(log.response_time_ms + 'ms') : '-'}</td>
+                        <td>${esc(log.project)}</td>
+                    </tr>
+                `).join('');
+
+                // Pagination
+                document.getElementById('pagination').innerHTML = `
+                    ${currentOffset > 0 ? `<button class="btn secondary" onclick="currentOffset-=${PAGE_SIZE};loadLogs()">← Prev</button>` : ''}
+                    <span style="padding:8px;color:#8b949e">Showing ${currentOffset + 1}-${currentOffset + logs.length}</span>
+                    ${logs.length === PAGE_SIZE ? `<button class="btn secondary" onclick="currentOffset+=${PAGE_SIZE};loadLogs()">Next →</button>` : ''}
+                `;
+            } catch (e) {
+                console.error('Failed to load logs:', e);
+            }
+        }
+
+        async function showDetail(id) {
+            try {
+                const resp = await fetch(`/api/logs/${id}`);
+                const log = await resp.json();
+                document.getElementById('modal-title').textContent = `${log.decision} — ${log.action}`;
+                document.getElementById('modal-content').innerHTML = `
+                    <p><strong>Time:</strong> ${new Date(log.timestamp).toLocaleString()}</p>
+                    <p><strong>Project:</strong> ${log.project}</p>
+                    <p><strong>Method:</strong> ${log.request_method} ${log.request_path}</p>
+                    <p><strong>Status:</strong> ${log.response_status}</p>
+                    <p><strong>Response Time:</strong> ${log.response_time_ms}ms</p>
+                    ${log.error_message ? `<p><strong>Error:</strong> <span style="color:#f85149">${log.error_message}</span></p>` : ''}
+                    <h3 style="margin-top:16px;margin-bottom:8px">Request Body</h3>
+                    <pre>${JSON.stringify(log.request_body, null, 2) || 'null'}</pre>
+                    <h3 style="margin-top:16px;margin-bottom:8px">Response Body</h3>
+                    <pre>${JSON.stringify(log.response_body, null, 2) || 'null'}</pre>
+                `;
+                document.getElementById('modal-overlay').style.display = 'block';
+            } catch (e) {
+                console.error('Failed to load detail:', e);
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').style.display = 'none';
+        }
+
+        async function loadManifests() {
+            try {
+                const resp = await fetch('/api/manifests');
+                const manifests = await resp.json();
+                document.getElementById('manifests-list').innerHTML = `
+                    <div class="table-container">
+                        <table>
+                            <thead><tr><th>Name</th><th>Description</th><th>Active</th><th>Actions</th></tr></thead>
+                            <tbody>
+                                ${manifests.map(m => `
+                                    <tr>
+                                        <td><strong>${m.name}</strong></td>
+                                        <td>${m.description}</td>
+                                        <td>${m.active ? '<span class="badge allowed">ACTIVE</span>' : '-'}</td>
+                                        <td>
+                                            <button class="btn secondary" onclick="viewManifest('${m.file}')">View</button>
+                                            ${!m.active ? `<button class="btn" onclick="activateManifest('${m.file}')">Activate</button>` : ''}
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (e) {
+                console.error('Failed to load manifests:', e);
+            }
+        }
+
+        async function viewManifest(name) {
+            try {
+                const resp = await fetch(`/api/manifest?project=${name}`);
+                const data = await resp.json();
+                document.getElementById('modal-title').textContent = `Manifest: ${data.project}`;
+                document.getElementById('modal-content').innerHTML = `
+                    <pre>${data.yaml}</pre>
+                    <h3 style="margin-top:16px;margin-bottom:8px">Parsed Permissions</h3>
+                    <pre>${JSON.stringify(data.permissions, null, 2)}</pre>
+                `;
+                document.getElementById('modal-overlay').style.display = 'block';
+            } catch (e) {
+                console.error('Failed to load manifest:', e);
+            }
+        }
+
+        async function activateManifest(name) {
+            try {
+                await fetch('/api/activate', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({project: name}),
+                });
+                loadStats();
+                loadManifests();
+            } catch (e) {
+                console.error('Failed to activate:', e);
+            }
+        }
+
+        // Filter handlers
+        document.getElementById('filter-decision').addEventListener('change', () => { currentOffset = 0; loadLogs(); });
+        document.getElementById('filter-search').addEventListener('keyup', (e) => { if (e.key === 'Enter') { currentOffset = 0; loadLogs(); } });
+
+        // Keyboard shortcut
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+        // Auto-refresh
+        loadStats();
+        loadLogs();
+        setInterval(loadStats, 15000);
+        setInterval(loadLogs, 10000);
+    </script>
+</body>
+</html>
