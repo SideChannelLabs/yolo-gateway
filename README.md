@@ -2,20 +2,7 @@
 
 **Policy-based access gateway for AI coding agents.** Control what your agent can touch — AWS, Git, Slack, Gmail — through simple YAML manifests. Every request is policy-checked, audited, and logged.
 
-```
-┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│              │     │                  │     │  AWS (any svc)  │
-│  Claude Code │────▶│  YOLO Gateway    │────▶│  Git (BB/SSH)   │
-│              │     │                  │     │  Slack           │
-│  ZERO keys   │◀────│  Policy Engine   │     │  Gmail           │
-│  ZERO creds  │     │  Audit Log       │     │  + more coming   │
-│  ZERO access │     │  API Key Auth    │     └─────────────────┘
-│              │     │                  │
-│              │     │  YAML Manifests  │     ┌─────────────────┐
-│              │     │  define what's   │────▶│  SQLite Audit    │
-│              │     │  allowed         │     │  (every request) │
-└─────────────┘     └──────────────────┘     └─────────────────┘
-```
+![YOLO Gateway Architecture](docs/architecture.jpg)
 
 Claude Code gets **zero credentials**. It talks to the gateway over HTTP. The gateway checks your YAML policy, proxies allowed calls to real services, denies everything else, and logs it all.
 
@@ -234,8 +221,6 @@ TELEGRAM_CHAT_ID         # Target chat
 ```
 
 ## Architecture
-
-![YOLO Gateway Architecture](docs/architecture.jpg)
 
 ```
 gateway/
