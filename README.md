@@ -235,6 +235,8 @@ TELEGRAM_CHAT_ID         # Target chat
 
 ## Architecture
 
+![YOLO Gateway Architecture](docs/architecture.jpg)
+
 ```
 gateway/
 ├── main.py              # FastAPI app, audit middleware, dashboard, manifest CRUD
