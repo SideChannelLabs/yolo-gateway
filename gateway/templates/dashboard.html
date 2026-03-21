@@ -1,328 +1,1655 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YOLO Gateway Dashboard</title>
+    <title>YOLOMODE Dashboard</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; background: #0d1117; color: #c9d1d9; }
-        .header { background: #161b22; border-bottom: 1px solid #30363d; padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 20px; color: #58a6ff; }
-        .header .project { color: #8b949e; font-size: 14px; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:monospace; background:#0a0a0a; color:#e0e0e0; padding:20px; }
+        h1 { color:#00ff88; margin-bottom:20px; font-size:24px; }
+        h2 { color:#00ff88; font-size:16px; margin:20px 0 10px; }
 
-        /* Stats Bar */
-        .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
-        .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
-        .stat-card .label { color: #8b949e; font-size: 12px; text-transform: uppercase; }
-        .stat-card .value { font-size: 28px; font-weight: 600; margin-top: 4px; }
-        .stat-card .value.green { color: #3fb950; }
-        .stat-card .value.red { color: #f85149; }
-        .stat-card .value.yellow { color: #d29922; }
-        .stat-card .value.blue { color: #58a6ff; }
+        .stats { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:12px; }
+        .stat { background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:12px; }
+        .stat h3 { color:#666; font-size:10px; text-transform:uppercase; }
+        .stat .val { font-size:28px; font-weight:bold; margin-top:4px; }
+        .green { color:#00ff88; } .red { color:#ff4444; } .yellow { color:#ffaa00; } .blue { color:#4488ff; } .purple { color:#aa66ff; }
 
-        /* SSO Status */
-        .sso-bar { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
-        .sso-account { display: flex; align-items: center; gap: 8px; }
-        .sso-dot { width: 10px; height: 10px; border-radius: 50%; }
-        .sso-dot.active { background: #3fb950; }
-        .sso-dot.expired { background: #f85149; }
-        .sso-dot.logging_in { background: #d29922; }
+        .cost-bar { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:20px; }
+        .cost-bar .stat .val { font-size:22px; }
+
+        .sso-bar { display:flex; gap:8px; margin-bottom:20px; }
+        .sso { padding:6px 12px; border-radius:4px; font-size:12px; }
+        .sso.active { background:#0a2a0a; border:1px solid #00ff88; color:#00ff88; }
+        .sso.expired { background:#2a0a0a; border:1px solid #ff4444; color:#ff4444; }
+        .sso.no_profile { background:#2a2a0a; border:1px solid #ffaa00; color:#ffaa00; }
 
         /* Tabs */
-        .tabs { display: flex; gap: 0; margin-bottom: 24px; border-bottom: 1px solid #30363d; }
-        .tab { padding: 12px 20px; cursor: pointer; color: #8b949e; border-bottom: 2px solid transparent; transition: all 0.2s; }
-        .tab:hover { color: #c9d1d9; }
-        .tab.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+        .tabs { display:flex; gap:0; margin-bottom:0; border-bottom:1px solid #333; }
+        .tab { padding:8px 20px; cursor:pointer; color:#666; border:1px solid transparent;
+               border-bottom:none; border-radius:4px 4px 0 0; font-size:13px; }
+        .tab:hover { color:#aaa; }
+        .tab.active { color:#00ff88; border-color:#333; background:#1a1a1a; position:relative; }
+        .tab.active::after { content:''; position:absolute; bottom:-1px; left:0; right:0; height:1px; background:#1a1a1a; }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; }
 
-        /* Table */
-        .table-container { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #0d1117; text-align: left; padding: 12px 16px; color: #8b949e; font-size: 12px; text-transform: uppercase; border-bottom: 1px solid #30363d; }
-        td { padding: 10px 16px; border-bottom: 1px solid #21262d; font-size: 13px; }
-        tr:hover { background: #1c2128; }
-        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-        .badge.allowed { background: #0d2818; color: #3fb950; }
-        .badge.denied { background: #3d1114; color: #f85149; }
-        .badge.error { background: #3d1114; color: #f85149; }
-        .badge.sso_expired { background: #3b2607; color: #d29922; }
+        .filters { display:flex; gap:8px; margin:12px 0; align-items:center; }
+        .filters select, .filters input {
+            background:#1a1a1a; color:#e0e0e0; border:1px solid #333;
+            padding:6px 10px; border-radius:4px; font-family:monospace; font-size:12px;
+        }
+        .filters input { width:250px; }
+        .auto { color:#444; font-size:11px; margin-left:auto; }
+        table { width:100%; border-collapse:collapse; }
+        th { text-align:left; padding:6px 8px; color:#666; border-bottom:1px solid #333; font-size:11px; }
+        td { padding:6px 8px; border-bottom:1px solid #181818; font-size:12px; cursor:pointer; }
+        tr:hover { background:#111; }
+        .ALLOWED { color:#00ff88; } .DENIED { color:#ff4444; }
+        .SSO_EXPIRED { color:#ffaa00; } .ERROR { color:#ff6666; }
+        .ms { color:#555; }
 
-        /* Filters */
-        .filters { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-        .filters select, .filters input { background: #0d1117; border: 1px solid #30363d; color: #c9d1d9; padding: 8px 12px; border-radius: 6px; font-size: 13px; }
-        .filters input { min-width: 250px; }
-        .btn { background: #238636; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-        .btn:hover { background: #2ea043; }
-        .btn.secondary { background: #30363d; }
-        .btn.secondary:hover { background: #484f58; }
+        /* Session cards */
+        .session-list { display:grid; gap:8px; margin-top:12px; }
+        .session-card {
+            background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:12px;
+            display:grid; grid-template-columns:auto 1fr auto auto auto; gap:16px; align-items:center;
+            cursor:pointer;
+        }
+        .session-card:hover { border-color:#00ff88; }
+        .session-id { font-weight:bold; color:#4488ff; font-size:14px; }
+        .session-project { color:#aaa; }
+        .session-status { padding:2px 8px; border-radius:3px; font-size:11px; }
+        .session-status.active { background:#0a2a0a; color:#00ff88; border:1px solid #00ff88; }
+        .session-status.completed { background:#1a1a2a; color:#4488ff; border:1px solid #4488ff; }
+        .session-status.crashed { background:#2a0a0a; color:#ff4444; border:1px solid #ff4444; }
+        .session-tokens { color:#888; font-size:12px; text-align:right; }
+        .session-cost { color:#aa66ff; font-weight:bold; font-size:14px; }
+        .session-duration { color:#666; font-size:12px; }
 
-        /* Detail Modal */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; }
-        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #161b22; border: 1px solid #30363d; border-radius: 12px; width: 90%; max-width: 800px; max-height: 80vh; overflow-y: auto; padding: 24px; z-index: 101; }
-        .modal h2 { margin-bottom: 16px; color: #58a6ff; }
-        .modal pre { background: #0d1117; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
-        .modal .close { position: absolute; top: 16px; right: 16px; cursor: pointer; color: #8b949e; font-size: 24px; }
+        /* Agent cards */
+        .agent-card {
+            background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:12px;
+            display:grid; grid-template-columns:auto auto 1fr auto auto auto; gap:12px; align-items:center;
+            cursor:pointer;
+        }
+        .agent-card:hover { border-color:#aa66ff; }
+        .agent-role { font-weight:bold; color:#aa66ff; font-size:13px; padding:2px 8px;
+                      border:1px solid #aa66ff; border-radius:3px; background:#1a0a2a; }
+        .agent-id { color:#4488ff; font-size:12px; font-family:monospace; }
+        .agent-parent { color:#555; font-size:11px; }
+        .agent-tools { color:#ffaa00; font-size:12px; }
+        .agent-msgs { color:#00ff88; font-size:12px; }
 
-        /* Service breakdown */
-        .breakdown { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 16px; }
-        .breakdown-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-        .breakdown-bar { height: 8px; background: #58a6ff; border-radius: 4px; min-width: 20px; }
+        /* Agent detail styles */
+        .tool-list { list-style:none; padding:0; margin:4px 0; }
+        .tool-list li { padding:3px 0; font-size:12px; border-bottom:1px solid #181818; display:flex; gap:8px; }
+        .tool-name { color:#ffaa00; min-width:100px; }
+        .tool-summary { color:#888; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .msg-card { background:#0a0a0a; border:1px solid #222; border-radius:4px; padding:8px; margin:4px 0; }
+        .msg-to { color:#00ff88; font-weight:bold; font-size:12px; }
+        .msg-preview { color:#aaa; font-size:12px; margin-top:2px; }
+        .file-tag { display:inline-block; background:#0a1a0a; border:1px solid #333; border-radius:3px;
+                    padding:2px 6px; margin:2px; font-size:11px; color:#00ff88; }
 
-        .pagination { display: flex; gap: 8px; justify-content: center; margin-top: 16px; }
+        /* Conversation timeline */
+        .convo-timeline { margin-top:12px; }
+        .convo-msg { border-left:3px solid #aa66ff; margin:8px 0; padding:8px 12px; background:#0a0a0a; border-radius:0 4px 4px 0; }
+        .convo-msg .convo-header { display:flex; gap:8px; align-items:center; margin-bottom:4px; }
+        .convo-msg .convo-from { color:#aa66ff; font-weight:bold; font-size:12px; }
+        .convo-msg .convo-arrow { color:#555; font-size:12px; }
+        .convo-msg .convo-to { color:#00ff88; font-weight:bold; font-size:12px; }
+        .convo-msg .convo-time { color:#555; font-size:11px; margin-left:auto; }
+        .convo-msg .convo-body { color:#ccc; font-size:12px; white-space:pre-wrap; word-break:break-word; margin-top:4px; max-height:300px; overflow-y:auto; }
+        .convo-btn { background:#1a0a2a; border:1px solid #aa66ff; color:#aa66ff; padding:6px 14px;
+                     border-radius:4px; cursor:pointer; font-family:monospace; font-size:12px; margin:8px 0; }
+        .convo-btn:hover { background:#2a1a3a; }
+
+        .panel { display:none; position:fixed; right:0; top:0; width:55%; height:100vh;
+                 background:#111; border-left:2px solid #333; overflow-y:auto; padding:20px; z-index:10; }
+        .panel.open { display:block; }
+        .panel .close { position:absolute; top:10px; right:16px; cursor:pointer; color:#888; font-size:20px; }
+        .panel h2 { color:#00ff88; font-size:16px; margin-bottom:16px; }
+        .panel h3 { color:#888; font-size:12px; margin:12px 0 4px; text-transform:uppercase; }
+        .panel pre { background:#0a0a0a; border:1px solid #222; border-radius:4px; padding:12px;
+                     font-size:12px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; max-height:40vh; overflow-y:auto; }
+        .tag { display:inline-block; padding:2px 8px; border-radius:3px; font-size:11px; margin-right:6px; }
+        .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9; }
+        .overlay.open { display:block; }
+
+        /* Library cards */
+        .lib-role-card {
+            background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:14px;
+            display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center;
+            cursor:pointer; transition:border-color 0.15s;
+        }
+        .lib-role-card:hover { border-color:#aa66ff; }
+        .lib-role-name { font-weight:bold; color:#aa66ff; font-size:15px; }
+        .lib-role-desc { color:#aaa; font-size:13px; }
+        .lib-role-meta { color:#555; font-size:12px; text-align:right; }
+        .lib-std-tag { display:inline-block; background:#0a1a2a; border:1px solid #4488ff; border-radius:3px;
+                       padding:1px 6px; margin:2px; font-size:11px; color:#4488ff; }
+        .lib-team-card {
+            background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:14px;
+            cursor:pointer; transition:border-color 0.15s;
+        }
+        .lib-team-card:hover { border-color:#00ff88; }
+        .lib-team-name { font-weight:bold; color:#00ff88; font-size:15px; }
+        .lib-team-desc { color:#aaa; font-size:13px; margin-top:4px; }
+        .lib-std-card {
+            background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:14px;
+            cursor:pointer; transition:border-color 0.15s;
+        }
+        .lib-std-card:hover { border-color:#4488ff; }
+
+        /* Kanban board */
+        .kanban-board { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:12px; min-height:400px; }
+        .kanban-col { background:#111; border:1px solid #222; border-radius:6px; padding:0; display:flex; flex-direction:column; min-height:400px; }
+        .kanban-col-header { padding:10px 12px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; background:#111; border-radius:6px 6px 0 0; }
+        .kanban-col-title { font-weight:bold; font-size:13px; }
+        .kanban-col-count { font-size:11px; padding:2px 8px; border-radius:10px; background:#0a0a0a; }
+        .kanban-col-body { padding:8px; flex:1; overflow-y:auto; max-height:60vh; display:flex; flex-direction:column; gap:6px; }
+        .kanban-card {
+            background:#1a1a1a; border:1px solid #333; border-radius:6px; padding:10px 12px;
+            cursor:pointer; transition:all 0.15s; position:relative;
+        }
+        .kanban-card:hover { border-color:#00ff88; transform:translateY(-1px); box-shadow:0 2px 8px rgba(0,255,136,0.1); }
+        .kanban-card-id { color:#00ff88; font-weight:bold; font-size:12px; margin-bottom:4px; }
+        .kanban-card-title { color:#e0e0e0; font-size:12px; margin-bottom:8px; line-height:1.4; }
+        .kanban-card-desc { color:#666; font-size:11px; margin-bottom:8px; line-height:1.3; max-height:40px; overflow:hidden; }
+        .kanban-card-footer { display:flex; justify-content:space-between; align-items:center; gap:4px; flex-wrap:wrap; }
+        .kanban-card-assignee { font-size:11px; padding:2px 8px; border-radius:3px; }
+        .kanban-card-phase { color:#555; font-size:10px; }
+        .kanban-card-reqs { display:flex; gap:3px; flex-wrap:wrap; margin-top:6px; }
+        .kanban-card-req { font-size:10px; padding:1px 5px; border-radius:2px; background:#0a1a0a; border:1px solid #333; color:#00ff88; }
+        .kanban-card-actions { position:absolute; top:6px; right:6px; display:none; }
+        .kanban-card:hover .kanban-card-actions { display:flex; gap:2px; }
+        .kanban-card-btn { background:#222; border:1px solid #444; color:#888; padding:2px 6px; border-radius:3px; cursor:pointer; font-size:10px; font-family:monospace; }
+        .kanban-card-btn:hover { color:#fff; border-color:#00ff88; }
+        .kanban-empty { color:#333; font-size:12px; text-align:center; padding:20px 8px; }
+        .view-toggle { display:flex; gap:0; margin-left:auto; }
+        .view-toggle button { background:#1a1a1a; border:1px solid #333; color:#666; padding:4px 12px; font-family:monospace; font-size:11px; cursor:pointer; }
+        .view-toggle button:first-child { border-radius:4px 0 0 4px; }
+        .view-toggle button:last-child { border-radius:0 4px 4px 0; }
+        .view-toggle button.active { color:#00ff88; border-color:#00ff88; background:#0a2a0a; }
+        .task-create-btn { background:#00ff88; color:#000; border:none; padding:6px 14px; border-radius:4px; cursor:pointer; font-family:monospace; font-weight:bold; font-size:12px; }
+        .task-create-btn:hover { background:#00dd77; }
+        .task-form-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; justify-content:center; align-items:center; }
+        .task-form-overlay.open { display:flex; }
+        .task-form { background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:20px; width:500px; max-width:90vw; }
+        .task-form h3 { color:#00ff88; margin-bottom:16px; }
+        .task-form label { display:block; color:#888; font-size:11px; text-transform:uppercase; margin:10px 0 4px; }
+        .task-form input, .task-form select, .task-form textarea {
+            width:100%; background:#0a0a0a; color:#e0e0e0; border:1px solid #333;
+            padding:8px 10px; border-radius:4px; font-family:monospace; font-size:12px;
+        }
+        .task-form textarea { min-height:60px; resize:vertical; }
+        .task-form-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+
+        /* Task detail panel */
+        .task-detail-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:100; justify-content:center; align-items:flex-start; padding-top:40px; }
+        .task-detail-overlay.open { display:flex; }
+        .task-detail { background:#111; border:1px solid #333; border-radius:8px; width:700px; max-width:95vw; max-height:85vh; overflow-y:auto; }
+        .task-detail-header { padding:16px 20px; border-bottom:1px solid #222; display:flex; justify-content:space-between; align-items:flex-start; }
+        .task-detail-body { padding:16px 20px; }
+        .task-detail-section { margin-bottom:16px; }
+        .task-detail-section h4 { color:#888; font-size:11px; text-transform:uppercase; margin-bottom:6px; }
+        .task-detail-dod { background:#0a1a0a; border:1px solid #00ff8844; border-radius:4px; padding:10px 12px; font-size:12px; color:#aaa; white-space:pre-wrap; }
+        .task-post { border-left:3px solid #333; padding:8px 12px; margin-bottom:8px; background:#0a0a0a; border-radius:0 4px 4px 0; }
+        .task-post-header { display:flex; gap:8px; align-items:center; margin-bottom:4px; }
+        .task-post-author { font-weight:bold; font-size:12px; }
+        .task-post-time { color:#555; font-size:11px; margin-left:auto; }
+        .task-post-content { color:#ccc; font-size:12px; white-space:pre-wrap; line-height:1.4; }
+        .task-post-form { display:flex; gap:8px; margin-top:12px; }
+        .task-post-form textarea { flex:1; background:#0a0a0a; color:#e0e0e0; border:1px solid #333; padding:8px; border-radius:4px; font-family:monospace; font-size:12px; min-height:60px; resize:vertical; }
+
+        /* Expandable session cards */
+        .sess-card {
+            background:#1a1a1a; border:1px solid #333; border-radius:6px; margin-bottom:8px;
+            overflow:hidden; transition:border-color 0.15s;
+        }
+        .sess-card:hover { border-color:#444; }
+        .sess-card.active-session { border-color:#00ff88; box-shadow:0 0 8px rgba(0,255,136,0.15); }
+        .sess-card.crashed-session { border-color:#ff4444; }
+        .sess-header {
+            display:grid; grid-template-columns:auto 1fr auto auto auto auto; gap:12px; align-items:center;
+            padding:12px 16px; cursor:pointer;
+        }
+        .sess-header:hover { background:#222; }
+        .sess-expand { display:none; padding:0 16px 16px; border-top:1px solid #222; }
+        .sess-expand.open { display:block; }
+        .sess-agents-grid { display:grid; gap:6px; margin-top:8px; }
+        .sess-agent {
+            background:#0a0a0a; border:1px solid #222; border-radius:4px; padding:10px 12px;
+            display:grid; grid-template-columns:auto 1fr auto auto auto; gap:10px; align-items:center;
+            cursor:pointer; transition:border-color 0.15s;
+        }
+        .sess-agent:hover { border-color:#aa66ff; }
+        .sess-prompt { color:#aaa; font-size:12px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .sess-meta { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; }
+        .sess-meta-item { font-size:12px; }
+        .sess-meta-label { color:#555; }
+        .sess-meta-val { font-weight:bold; }
+        /* Markdown rendered view */
+        .md-rendered {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            font-size: 14px; line-height: 1.6; color: #e0e0e0;
+            padding: 16px 20px; background: #0d0d0d; border: 1px solid #222;
+            border-radius: 4px; overflow-y: auto; max-height: 70vh;
+        }
+        .md-rendered h1 { font-size: 22px; color: #00ff88; border-bottom: 1px solid #333; padding-bottom: 8px; margin: 20px 0 12px; }
+        .md-rendered h1:first-child { margin-top: 0; }
+        .md-rendered h2 { font-size: 18px; color: #00ff88; border-bottom: 1px solid #222; padding-bottom: 6px; margin: 18px 0 10px; }
+        .md-rendered h3 { font-size: 15px; color: #4488ff; margin: 14px 0 8px; }
+        .md-rendered h4 { font-size: 13px; color: #aa66ff; margin: 12px 0 6px; }
+        .md-rendered p { margin: 8px 0; }
+        .md-rendered ul, .md-rendered ol { margin: 8px 0; padding-left: 24px; }
+        .md-rendered li { margin: 4px 0; }
+        .md-rendered li > ul, .md-rendered li > ol { margin: 2px 0; }
+        .md-rendered code {
+            background: #1a1a2e; color: #ff7b72; padding: 2px 6px;
+            border-radius: 3px; font-family: monospace; font-size: 13px;
+        }
+        .md-rendered pre {
+            background: #111; border: 1px solid #333; border-radius: 6px;
+            padding: 12px 16px; overflow-x: auto; margin: 10px 0;
+        }
+        .md-rendered pre code {
+            background: none; color: #c9d1d9; padding: 0;
+            font-size: 13px; line-height: 1.5;
+        }
+        .md-rendered table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .md-rendered th {
+            background: #1a1a1a; color: #00ff88; text-align: left;
+            padding: 8px 12px; border: 1px solid #333; font-size: 12px;
+        }
+        .md-rendered td { padding: 6px 12px; border: 1px solid #222; font-size: 13px; }
+        .md-rendered tr:nth-child(even) { background: #111; }
+        .md-rendered blockquote {
+            border-left: 3px solid #4488ff; padding: 4px 12px; margin: 8px 0;
+            color: #aaa; background: #111;
+        }
+        .md-rendered strong { color: #fff; }
+        .md-rendered a { color: #4488ff; text-decoration: none; }
+        .md-rendered a:hover { text-decoration: underline; }
+        .md-rendered hr { border: none; border-top: 1px solid #333; margin: 16px 0; }
+
+        .md-toggle { display:inline-flex; gap:0; border:1px solid #333; border-radius:4px; overflow:hidden; }
+        .md-toggle button {
+            background:#1a1a1a; color:#666; border:none; padding:4px 14px;
+            cursor:pointer; font-family:monospace; font-size:11px; transition:all 0.15s;
+        }
+        .md-toggle button.active { background:#00ff88; color:#000; font-weight:bold; }
+        .md-toggle button:hover:not(.active) { color:#aaa; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
-    <div class="header">
-        <h1>YOLO Gateway</h1>
-        <div class="project" id="project-name">Loading...</div>
+    <h1>YOLOMODE <span style="color:#555">Gateway</span></h1>
+
+    <!-- Top stats row -->
+    <div class="stats" id="stats"></div>
+
+    <!-- Cost/token row -->
+    <div class="cost-bar" id="cost-bar"></div>
+
+    <!-- SSO status -->
+    <div class="sso-bar" id="sso"></div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <div class="tab" onclick="switchTab('projects',this)">Projects</div>
+        <div class="tab active" onclick="switchTab('requests',this)">Requests</div>
+        <div class="tab" onclick="switchTab('sessions',this)">Sessions</div>
     </div>
 
-    <div class="container">
-        <!-- Stats -->
-        <div class="stats-bar" id="stats-bar"></div>
-
-        <!-- SSO Status -->
-        <div class="sso-bar" id="sso-bar">
-            <strong>SSO:</strong>
-            <span id="sso-accounts">Checking...</span>
+    <div id="tab-projects" class="tab-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin:12px 0">
+            <h2>Project Manifests</h2>
+            <button onclick="showNewProject()" style="background:#00ff88;color:#000;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:monospace;font-weight:bold">+ New Project</button>
         </div>
-
-        <!-- Tabs -->
-        <div class="tabs">
-            <div class="tab active" data-tab="requests">Requests</div>
-            <div class="tab" data-tab="manifests">Manifests</div>
-        </div>
-
-        <!-- Requests Tab -->
-        <div id="tab-requests">
-            <div class="filters">
-                <select id="filter-decision">
-                    <option value="">All Decisions</option>
-                    <option value="ALLOWED">Allowed</option>
-                    <option value="DENIED">Denied</option>
-                    <option value="ERROR">Error</option>
-                    <option value="SSO_EXPIRED">SSO Expired</option>
-                </select>
-                <input type="text" id="filter-search" placeholder="Search actions, bodies...">
-                <button class="btn secondary" onclick="loadLogs()">Refresh</button>
+        <div id="new-project-form" style="display:none;background:#1a1a1a;border:1px solid #333;border-radius:4px;padding:12px;margin-bottom:12px">
+            <div style="display:flex;gap:8px;align-items:center">
+                <input id="new-project-name" placeholder="project-name" style="background:#0a0a0a;color:#e0e0e0;border:1px solid #333;padding:6px 10px;border-radius:4px;font-family:monospace;font-size:12px;width:200px"/>
+                <button onclick="createProject()" style="background:#00ff88;color:#000;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;font-family:monospace;font-weight:bold">Create</button>
+                <button onclick="document.getElementById('new-project-form').style.display='none'" style="background:#333;color:#e0e0e0;border:1px solid #555;padding:6px 12px;border-radius:4px;cursor:pointer;font-family:monospace">Cancel</button>
             </div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Decision</th>
-                            <th>Action</th>
-                            <th>Status</th>
-                            <th>Response Time</th>
-                            <th>Project</th>
-                        </tr>
-                    </thead>
-                    <tbody id="logs-body"></tbody>
-                </table>
+        </div>
+        <div id="project-cards" style="display:grid;gap:12px"></div>
+    </div>
+
+    <div id="tab-requests" class="tab-content active">
+        <div class="filters">
+            <select id="f-decision">
+                <option value="">All</option>
+                <option value="ALLOWED">ALLOWED</option>
+                <option value="DENIED">DENIED</option>
+                <option value="SSO_EXPIRED">SSO_EXPIRED</option>
+                <option value="ERROR">ERROR</option>
+            </select>
+            <input id="f-search" placeholder="Search requests & responses..." />
+            <span class="auto">Live &bull; 3s</span>
+        </div>
+        <table>
+            <thead>
+                <tr><th>Time</th><th>Project</th><th>Decision</th><th>Action</th><th>Status</th><th>Latency</th></tr>
+            </thead>
+            <tbody id="logs"></tbody>
+        </table>
+    </div>
+
+    <!-- Sessions tab (unified sessions + agents) -->
+    <div id="tab-sessions" class="tab-content">
+        <div class="filters">
+            <select id="f-session-status">
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+                <option value="crashed">Crashed</option>
+                <option value="has_agents">With Agents</option>
+            </select>
+            <select id="f-session-project">
+                <option value="">All Projects</option>
+            </select>
+            <select id="f-session-sort">
+                <option value="recent">Most Recent</option>
+                <option value="cost">Highest Cost</option>
+                <option value="tokens">Most Tokens</option>
+                <option value="agents">Most Agents</option>
+                <option value="duration">Longest Duration</option>
+            </select>
+            <span class="auto">Live &bull; 3s</span>
+        </div>
+        <div id="session-summary" style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:12px"></div>
+        <div class="session-list" id="session-list"></div>
+    </div>
+
+    <!-- Agent Teams tab -->
+    <div id="tab-project-detail" class="tab-content">
+        <div style="display:flex;align-items:center;gap:12px;margin:12px 0">
+            <button onclick="switchTab('projects',document.querySelector('.tab'))" style="background:#333;color:#e0e0e0;border:1px solid #555;padding:4px 12px;border-radius:4px;cursor:pointer;font-family:monospace">← Back</button>
+            <h2 id="detail-project-title" style="margin:0"></h2>
+            <span id="detail-active-badge" style="display:none" class="sso active">ACTIVE</span>
+        </div>
+
+        <div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <h2>Manifest YAML</h2>
+                <div style="display:flex;gap:8px">
+                    <button onclick="saveManifest()" id="save-btn" style="background:#00ff88;color:#000;border:none;padding:6px 16px;border-radius:4px;cursor:pointer;font-family:monospace;font-weight:bold">Save</button>
+                    <button onclick="loadManifest(currentProject)" style="background:#333;color:#e0e0e0;border:1px solid #555;padding:6px 12px;border-radius:4px;cursor:pointer;font-family:monospace">Reload</button>
+                </div>
             </div>
-            <div class="pagination" id="pagination"></div>
+            <textarea id="yaml-editor" spellcheck="false" style="width:100%;height:400px;background:#0a0a0a;color:#e0e0e0;border:1px solid #333;border-radius:4px;padding:12px;font-family:monospace;font-size:13px;resize:vertical;margin-top:8px;tab-size:2;line-height:1.5"></textarea>
+            <div id="save-status" style="color:#666;font-size:12px;margin-top:4px"></div>
         </div>
 
-        <!-- Manifests Tab -->
-        <div id="tab-manifests" style="display:none;">
-            <div id="manifests-list"></div>
+        <!-- Agent Picker -->
+        <div style="margin-top:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <h2>Agents</h2>
+                <span id="agent-picker-status" style="color:#555;font-size:12px"></span>
+            </div>
+
+            <!-- Current agents in manifest -->
+            <div id="current-agents" style="margin:12px 0;padding:12px;background:#0a1a0a;border:1px solid #1a3a1a;border-radius:6px;display:none">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <span style="color:#00ff88;font-weight:bold;font-size:13px">Currently Configured</span>
+                    <span id="current-agents-mode" style="color:#555;font-size:11px"></span>
+                </div>
+                <div id="current-agents-list" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            </div>
+
+            <!-- Quick add: team -->
+            <div style="margin:12px 0">
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+                    <span style="color:#888;font-size:12px;font-weight:bold">ADD TEAM:</span>
+                    <div id="team-buttons" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+                </div>
+            </div>
+
+            <!-- Available roles grid -->
+            <div style="margin:12px 0">
+                <span style="color:#888;font-size:12px;font-weight:bold;display:block;margin-bottom:8px">ADD INDIVIDUAL ROLES:</span>
+                <div id="role-picker-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px"></div>
+            </div>
+        </div>
+
+        <!-- Claude MD Editor -->
+        <div style="margin-top:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <h2>Claude MD <span style="color:#555;font-size:12px;font-weight:normal">(injected into guest CLAUDE.md)</span></h2>
+                <div style="display:flex;gap:8px">
+                    <button onclick="saveClaudeMd()" style="background:#00ff88;color:#000;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-family:monospace;font-size:12px;font-weight:bold">Save claude_md</button>
+                </div>
+            </div>
+            <textarea id="claude-md-editor" spellcheck="false" placeholder="Project-specific instructions injected into the guest container's CLAUDE.md..." style="width:100%;height:200px;background:#0a0a0a;color:#e0e0e0;border:1px solid #333;border-radius:4px;padding:12px;font-family:monospace;font-size:13px;resize:vertical;margin-top:8px;tab-size:2;line-height:1.5"></textarea>
+            <div id="claude-md-status" style="color:#666;font-size:12px;margin-top:4px"></div>
+        </div>
+
+        <!-- Hook Message Editor -->
+        <div style="margin-top:24px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <h2>Prompt Hook <span style="color:#555;font-size:12px;font-weight:normal">(reminder injected on every prompt)</span></h2>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <button onclick="resetHookMessage()" style="background:#333;color:#e0e0e0;border:1px solid #555;padding:4px 12px;border-radius:4px;cursor:pointer;font-family:monospace;font-size:12px">Reset to Default</button>
+                    <button onclick="saveHookMessage()" style="background:#00ff88;color:#000;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-family:monospace;font-size:12px;font-weight:bold">Save Hook</button>
+                </div>
+            </div>
+            <textarea id="hook-message-editor" spellcheck="false" placeholder="Gateway usage reminders injected on every prompt..." style="width:100%;height:160px;background:#0a0a0a;color:#e0e0e0;border:1px solid #333;border-radius:4px;padding:12px;font-family:monospace;font-size:13px;resize:vertical;margin-top:8px;tab-size:2;line-height:1.5"></textarea>
+            <div id="hook-message-status" style="color:#666;font-size:12px;margin-top:4px"></div>
         </div>
     </div>
 
-    <!-- Detail Modal -->
-    <div class="modal-overlay" id="modal-overlay" onclick="closeModal()">
-        <div class="modal" onclick="event.stopPropagation()">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <h2 id="modal-title">Request Detail</h2>
-            <div id="modal-content"></div>
-        </div>
+    <div class="overlay" id="overlay" onclick="closePanel()"></div>
+    <div class="panel" id="panel">
+        <span class="close" onclick="closePanel()">&times;</span>
+        <div id="detail"></div>
     </div>
+<script>
+function switchTab(name, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.tab-content#tab-${name}`).classList.add('active');
+    (el || event.target).classList.add('active');
+    if (name === 'projects') loadProjectCards();
+}
 
-    <script>
-        let currentOffset = 0;
-        const PAGE_SIZE = 50;
+function formatDuration(startedAt, endedAt) {
+    const start = new Date(startedAt);
+    const end = endedAt ? new Date(endedAt) : new Date();
+    const diffMs = end - start;
+    const mins = Math.floor(diffMs / 60000);
+    const hrs = Math.floor(mins / 60);
+    if (hrs > 0) return `${hrs}h ${mins % 60}m`;
+    if (mins > 0) return `${mins}m`;
+    return `${Math.floor(diffMs / 1000)}s`;
+}
 
-        // XSS protection — escape HTML entities in user-controlled data
-        function esc(str) {
-            if (str === null || str === undefined) return '';
-            const div = document.createElement('div');
-            div.textContent = String(str);
-            return div.innerHTML;
+function formatTokens(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+    return n.toString();
+}
+
+function formatCost(usd) {
+    if (usd >= 1) return '$' + usd.toFixed(2);
+    if (usd >= 0.01) return '$' + usd.toFixed(3);
+    if (usd > 0) return '$' + usd.toFixed(4);
+    return '$0.00';
+}
+
+async function refresh() {
+    try {
+        const stats = await (await fetch('/api/stats')).json();
+        const s = stats.sessions || {};
+        const activeSessions = stats.active_sessions || [];
+
+        document.getElementById('stats').innerHTML = `
+            <div class="stat"><h3>Total Requests</h3><div class="val">${stats.total_requests}</div></div>
+            <div class="stat"><h3>Last Hour</h3><div class="val green">${stats.last_hour}</div></div>
+            <div class="stat"><h3>Denied</h3><div class="val ${stats.denied_last_hour>0?'red':'green'}">${stats.denied_last_hour}</div></div>
+            <div class="stat"><h3>Errors</h3><div class="val ${stats.errors_last_hour>0?'red':'green'}">${stats.errors_last_hour}</div></div>
+            <div class="stat"><h3>Avg Latency</h3><div class="val blue">${stats.avg_response_ms}ms</div></div>
+        `;
+
+        const ioTokens = (s.total_input_tokens||0)+(s.total_output_tokens||0);
+        const cacheTokens = (s.total_cache_read_tokens||0)+(s.total_cache_write_tokens||0);
+        document.getElementById('cost-bar').innerHTML = `
+            <div class="stat"><h3>Active Sessions</h3><div class="val green">${s.active_sessions||0}</div></div>
+            <div class="stat"><h3>Total Sessions</h3><div class="val blue">${s.total_sessions||0}</div></div>
+            <div class="stat"><h3>I/O Tokens</h3><div class="val yellow">${formatTokens(ioTokens)}</div></div>
+            <div class="stat"><h3>Cache Tokens</h3><div class="val blue">${formatTokens(cacheTokens)}</div></div>
+            <div class="stat"><h3>Total Cost</h3><div class="val purple">${formatCost(s.total_cost_usd||0)}</div></div>
+        `;
+
+        const sso = stats.sso_status || {};
+        if (sso.accounts && sso.accounts.length) {
+            document.getElementById('sso').innerHTML = sso.accounts.map(a =>
+                `<div class="sso ${a.status}">${a.name||a.account||'?'}: ${a.status}</div>`
+            ).join('');
+        } else if (sso.status) {
+            document.getElementById('sso').innerHTML =
+                `<div class="sso ${sso.status}">${sso.profile||sso.account||'?'}: ${sso.status}</div>`;
         }
 
-        // Tab switching
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                document.querySelectorAll('[id^="tab-"]').forEach(p => p.style.display = 'none');
-                document.getElementById('tab-' + tab.dataset.tab).style.display = '';
-                if (tab.dataset.tab === 'manifests') loadManifests();
+        // Requests tab
+        let url = '/api/logs?limit=100';
+        const dec = document.getElementById('f-decision').value;
+        const search = document.getElementById('f-search').value;
+        if (dec) url += `&decision=${dec}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+        const logs = await (await fetch(url)).json();
+        document.getElementById('logs').innerHTML = logs.map(l => `
+            <tr onclick="showDetail(${l.id})">
+                <td>${(l.timestamp||'').substring(11,19)}</td>
+                <td>${l.project}</td>
+                <td class="${l.decision}">${l.decision}</td>
+                <td>${l.action}</td>
+                <td>${l.response_status||''}</td>
+                <td class="ms">${l.response_time_ms?l.response_time_ms+'ms':''}</td>
+            </tr>
+        `).join('');
+
+        // Sessions tab (unified sessions + agents)
+        const statusFilter = document.getElementById('f-session-status').value;
+        const projectFilter = document.getElementById('f-session-project').value;
+        const sortBy = document.getElementById('f-session-sort').value;
+        let sessUrl = '/sessions?limit=100';
+        // "has_agents" is client-side filter, don't send to API
+        if (statusFilter && statusFilter !== 'has_agents') sessUrl += `&status=${statusFilter}`;
+        if (projectFilter) sessUrl += `&project=${encodeURIComponent(projectFilter)}`;
+        let sessList = await (await fetch(sessUrl)).json();
+
+        // Fetch all agents and group by session
+        const agentList = await (await fetch('/agents?limit=200')).json();
+        const agentsBySession = {};
+        for (const a of agentList) {
+            const sid = a.parent_session_id;
+            if (!agentsBySession[sid]) agentsBySession[sid] = [];
+            agentsBySession[sid].push(a);
+        }
+
+        // Client-side filter: has_agents
+        if (statusFilter === 'has_agents') {
+            sessList = sessList.filter(s => (agentsBySession[s.session_id] || []).length > 0);
+        }
+
+        // Sort
+        function getDurationMs(s) {
+            const start = new Date(s.started_at).getTime();
+            const end = s.ended_at ? new Date(s.ended_at).getTime() : Date.now();
+            return end - start;
+        }
+        if (sortBy === 'cost') {
+            sessList.sort((a, b) => {
+                const aCost = (a.total_cost_usd||0) + (agentsBySession[a.session_id]||[]).reduce((s,x) => s+(x.total_cost_usd||0), 0);
+                const bCost = (b.total_cost_usd||0) + (agentsBySession[b.session_id]||[]).reduce((s,x) => s+(x.total_cost_usd||0), 0);
+                return bCost - aCost;
             });
+        } else if (sortBy === 'tokens') {
+            sessList.sort((a, b) => ((b.input_tokens||0)+(b.output_tokens||0)) - ((a.input_tokens||0)+(a.output_tokens||0)));
+        } else if (sortBy === 'agents') {
+            sessList.sort((a, b) => (agentsBySession[b.session_id]||[]).length - (agentsBySession[a.session_id]||[]).length);
+        } else if (sortBy === 'duration') {
+            sessList.sort((a, b) => getDurationMs(b) - getDurationMs(a));
+        }
+        // 'recent' is default from API (ORDER BY started_at DESC)
+
+        // Populate project filter dropdown
+        const projSelect = document.getElementById('f-session-project');
+        const knownProjects = [...new Set(sessList.map(s => s.project).filter(Boolean))];
+        const currentProjVal = projSelect.value;
+        if (projSelect.options.length <= 1) {
+            knownProjects.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p; opt.textContent = p;
+                projSelect.appendChild(opt);
+            });
+            projSelect.value = currentProjVal;
+        }
+
+        // Summary stats
+        const agentTotals = stats.agents || {};
+        const activeSess = sessList.filter(s => s.status === 'active').length;
+        const totalAgents = agentList.length;
+        const totalSessCost = sessList.reduce((sum, s) => sum + (s.total_cost_usd || 0), 0);
+        const totalAgentCost = agentList.reduce((sum, a) => sum + (a.total_cost_usd || 0), 0);
+        document.getElementById('session-summary').innerHTML = `
+            <div class="stat"><h3>Active Sessions</h3><div class="val green">${activeSess}</div></div>
+            <div class="stat"><h3>Total Sessions</h3><div class="val blue">${sessList.length}</div></div>
+            <div class="stat"><h3>Agents Spawned</h3><div class="val purple">${totalAgents}</div></div>
+            <div class="stat"><h3>Session Cost</h3><div class="val yellow">${formatCost(totalSessCost)}</div></div>
+            <div class="stat"><h3>Agent Cost</h3><div class="val purple">${formatCost(totalAgentCost)}</div></div>
+        `;
+
+        // Render session cards
+        // Remember which sessions are currently expanded
+        const expanded = window._expandedSessions || new Set();
+
+        document.getElementById('session-list').innerHTML = sessList.map(s => {
+            const agents = agentsBySession[s.session_id] || [];
+            const agentCount = agents.length;
+            const agentRoles = [...new Set(agents.map(a => a.role).filter(Boolean))];
+            const agentCost = agents.reduce((sum, a) => sum + (a.total_cost_usd || 0), 0);
+            const totalCost = (s.total_cost_usd || 0) + agentCost;
+            const isActive = s.status === 'active';
+            const isCrashed = s.status === 'crashed';
+            const isExpanded = expanded.has(s.session_id);
+            const hasAgents = agentCount > 0;
+
+            const agentBadges = agentRoles.map(r =>
+                '<span class="agent-role" style="font-size:11px;padding:1px 6px">' + escapeHtml(r) + '</span>'
+            ).join(' ');
+
+            const agentCards = agents.map(a => {
+                const aActive = a.status === 'active';
+                return '<div class="sess-agent" onclick="event.stopPropagation();showAgent(\'' + a.agent_id + '\')">' +
+                    '<span class="agent-role" style="font-size:11px;padding:1px 6px">' + escapeHtml(a.role || '?') + '</span>' +
+                    (aActive ? '<span class="session-status active" style="font-size:9px;padding:1px 4px">LIVE</span>' : '') +
+                    '<span style="color:#888;font-size:12px">' + formatDuration(a.started_at, a.ended_at) +
+                    ' &bull; ' + (a.tool_call_count||0) + ' tools &bull; ' + (a.messages_sent_count||0) + ' msgs</span>' +
+                    '<span style="color:#555;font-size:11px">' + formatTokens((a.input_tokens||0)+(a.output_tokens||0)) + '</span>' +
+                    '<span class="session-cost" style="font-size:12px">' + formatCost(a.total_cost_usd) + '</span>' +
+                '</div>';
+            }).join('');
+
+            return '<div class="sess-card' + (isActive?' active-session':'') + (isCrashed?' crashed-session':'') + '">' +
+                '<div class="sess-header" onclick="toggleSession(\'' + s.session_id + '\')">' +
+                    '<span class="session-status ' + s.status + '" style="font-size:11px;min-width:70px;text-align:center">' + s.status.toUpperCase() + '</span>' +
+                    '<div>' +
+                        '<span style="color:#4488ff;font-weight:bold">' + escapeHtml(s.project || 'unknown') + '</span>' +
+                        (s.prompt ? '<span class="sess-prompt" style="margin-left:8px">' + escapeHtml(s.prompt.substring(0,80)) + '</span>' : '') +
+                        (hasAgents ? '<span style="margin-left:8px">' + agentBadges + '</span>' : '') +
+                    '</div>' +
+                    '<span style="color:#4488ff;font-weight:bold;font-size:12px">' + formatDuration(s.started_at, s.ended_at) + '</span>' +
+                    '<span style="color:#888;font-size:12px">' + formatTokens((s.input_tokens||0)+(s.output_tokens||0)) + '</span>' +
+                    '<span class="session-cost">' + formatCost(totalCost) + '</span>' +
+                    (hasAgents ? '<span style="color:#aa66ff;font-size:11px">' + agentCount + ' agent' + (agentCount>1?'s':'') + '</span>' : '<span style="color:#555;font-size:11px">solo</span>') +
+                '</div>' +
+                '<div class="sess-expand' + (isExpanded?' open':'') + '" id="sess-expand-' + s.session_id + '">' +
+                    '<div class="sess-meta">' +
+                        '<span class="sess-meta-item"><span class="sess-meta-label">Session: </span><span class="sess-meta-val" style="color:#4488ff">' + s.session_id + '</span></span>' +
+                        '<span class="sess-meta-item"><span class="sess-meta-label">Started: </span><span class="sess-meta-val" style="color:#aaa">' + (s.started_at||'').replace('T',' ').substring(0,19) + '</span></span>' +
+                        (s.ended_at ? '<span class="sess-meta-item"><span class="sess-meta-label">Ended: </span><span class="sess-meta-val" style="color:#aaa">' + s.ended_at.replace('T',' ').substring(0,19) + '</span></span>' : '') +
+                        '<span class="sess-meta-item"><span class="sess-meta-label">Elapsed: </span><span class="sess-meta-val" style="color:#4488ff;font-weight:bold">' + formatDuration(s.started_at, s.ended_at) + '</span></span>' +
+                    '</div>' +
+                    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px">' +
+                        '<div class="stat"><h3>Input</h3><div class="val yellow" style="font-size:16px">' + formatTokens(s.input_tokens) + '</div></div>' +
+                        '<div class="stat"><h3>Output</h3><div class="val yellow" style="font-size:16px">' + formatTokens(s.output_tokens) + '</div></div>' +
+                        '<div class="stat"><h3>Cache Read</h3><div class="val blue" style="font-size:16px">' + formatTokens(s.cache_read_tokens) + '</div></div>' +
+                        '<div class="stat"><h3>Cache Write</h3><div class="val blue" style="font-size:16px">' + formatTokens(s.cache_write_tokens) + '</div></div>' +
+                    '</div>' +
+                    (hasAgents ?
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px">' +
+                            '<h2 style="margin:0;font-size:13px">Spawned Agents (' + agentCount + ')</h2>' +
+                            '<div style="display:flex;gap:8px">' +
+                                '<span style="color:#aa66ff;font-size:12px">Agent cost: ' + formatCost(agentCost) + '</span>' +
+                                '<button class="convo-btn" style="margin:0;padding:3px 10px;font-size:11px" onclick="event.stopPropagation();showTeamDetail(\'' + s.session_id + '\')">Timeline</button>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="sess-agents-grid">' + agentCards + '</div>'
+                    :
+                        '<div style="margin-top:12px;display:flex;gap:8px">' +
+                            '<button class="convo-btn" style="margin:0;padding:3px 10px;font-size:11px" onclick="event.stopPropagation();showSession(\'' + s.session_id + '\')">Full Details</button>' +
+                        '</div>'
+                    ) +
+                '</div>' +
+            '</div>';
+        }).join('') || '<div style="color:#555;padding:20px">No sessions yet. Sessions appear when Claude containers are launched.</div>';
+
+        // Agent Teams tab
+        const agentTeamTotals = stats.agents || {};
+        document.getElementById('agent-stats').innerHTML = `
+            <div class="stat"><h3>Total Agents</h3><div class="val purple">${agentTeamTotals.total_agents||0}</div></div>
+            <div class="stat"><h3>Unique Roles</h3><div class="val blue">${agentTeamTotals.unique_roles||0}</div></div>
+            <div class="stat"><h3>Tool Calls</h3><div class="val yellow">${agentTeamTotals.total_tool_calls||0}</div></div>
+            <div class="stat"><h3>Agent Cost</h3><div class="val purple">${formatCost(agentTeamTotals.total_cost_usd||0)}</div></div>
+        `;
+
+        const teamMap = {};
+        for (const a of agentList) {
+            const sid = a.parent_session_id;
+            if (!teamMap[sid]) teamMap[sid] = { agents: [], cost: 0, tools: 0, msgs: 0, roles: new Set(), hasActive: false, started: '', ended: '' };
+            teamMap[sid].agents.push(a);
+            teamMap[sid].cost += a.total_cost_usd || 0;
+            teamMap[sid].tools += a.tool_call_count || 0;
+            teamMap[sid].msgs += a.messages_sent_count || 0;
+            if (a.role) teamMap[sid].roles.add(a.role);
+            if (a.status === 'active') teamMap[sid].hasActive = true;
+            if (a.started_at && (!teamMap[sid].started || a.started_at < teamMap[sid].started)) teamMap[sid].started = a.started_at;
+            if (a.ended_at && (!teamMap[sid].ended || a.ended_at > teamMap[sid].ended)) teamMap[sid].ended = a.ended_at;
+        }
+        const teams = Object.entries(teamMap).sort((a,b) => {
+            // Active teams first, then by most recent date
+            if (a[1].hasActive !== b[1].hasActive) return b[1].hasActive ? 1 : -1;
+            return (b[1].started || '').localeCompare(a[1].started || '');
         });
-
-        async function loadStats() {
-            try {
-                const resp = await fetch('/api/stats');
-                const data = await resp.json();
-                document.getElementById('project-name').textContent = data.project || 'No active project';
-
-                document.getElementById('stats-bar').innerHTML = `
-                    <div class="stat-card"><div class="label">Total Requests</div><div class="value blue">${data.total_requests}</div></div>
-                    <div class="stat-card"><div class="label">Last Hour</div><div class="value green">${data.last_hour}</div></div>
-                    <div class="stat-card"><div class="label">Denied (1h)</div><div class="value red">${data.denied_last_hour}</div></div>
-                    <div class="stat-card"><div class="label">Errors (1h)</div><div class="value red">${data.errors_last_hour}</div></div>
-                    <div class="stat-card"><div class="label">Avg Response</div><div class="value">${data.avg_response_ms}ms</div></div>
-                `;
-
-                // SSO
-                const sso = data.sso_status || {};
-                const accounts = sso.accounts || [];
-                if (accounts.length === 0) {
-                    document.getElementById('sso-accounts').textContent = 'No accounts configured';
-                } else {
-                    document.getElementById('sso-accounts').innerHTML = accounts.map(a =>
-                        `<span class="sso-account"><span class="sso-dot ${a.status}"></span>${a.name || a.account} (${a.status})</span>`
-                    ).join('');
-                }
-            } catch (e) {
-                console.error('Failed to load stats:', e);
-            }
-        }
-
-        async function loadLogs() {
-            const decision = document.getElementById('filter-decision').value;
-            const search = document.getElementById('filter-search').value;
-            let url = `/api/logs?limit=${PAGE_SIZE}&offset=${currentOffset}`;
-            if (decision) url += `&decision=${decision}`;
-            if (search) url += `&search=${encodeURIComponent(search)}`;
-
-            try {
-                const resp = await fetch(url);
-                const logs = await resp.json();
-                const tbody = document.getElementById('logs-body');
-                tbody.innerHTML = logs.map(log => `
-                    <tr onclick="showDetail(${parseInt(log.id)})" style="cursor:pointer">
-                        <td>${esc(new Date(log.timestamp).toLocaleString())}</td>
-                        <td><span class="badge ${esc(log.decision.toLowerCase())}">${esc(log.decision)}</span></td>
-                        <td>${esc(log.action || log.request_path)}</td>
-                        <td>${esc(log.response_status || '-')}</td>
-                        <td>${log.response_time_ms ? esc(log.response_time_ms + 'ms') : '-'}</td>
-                        <td>${esc(log.project)}</td>
-                    </tr>
-                `).join('');
-
-                // Pagination
-                document.getElementById('pagination').innerHTML = `
-                    ${currentOffset > 0 ? `<button class="btn secondary" onclick="currentOffset-=${PAGE_SIZE};loadLogs()">← Prev</button>` : ''}
-                    <span style="padding:8px;color:#8b949e">Showing ${currentOffset + 1}-${currentOffset + logs.length}</span>
-                    ${logs.length === PAGE_SIZE ? `<button class="btn secondary" onclick="currentOffset+=${PAGE_SIZE};loadLogs()">Next →</button>` : ''}
-                `;
-            } catch (e) {
-                console.error('Failed to load logs:', e);
-            }
-        }
-
-        async function showDetail(id) {
-            try {
-                const resp = await fetch(`/api/logs/${id}`);
-                const log = await resp.json();
-                document.getElementById('modal-title').textContent = `${log.decision} — ${log.action}`;
-                document.getElementById('modal-content').innerHTML = `
-                    <p><strong>Time:</strong> ${new Date(log.timestamp).toLocaleString()}</p>
-                    <p><strong>Project:</strong> ${log.project}</p>
-                    <p><strong>Method:</strong> ${log.request_method} ${log.request_path}</p>
-                    <p><strong>Status:</strong> ${log.response_status}</p>
-                    <p><strong>Response Time:</strong> ${log.response_time_ms}ms</p>
-                    ${log.error_message ? `<p><strong>Error:</strong> <span style="color:#f85149">${log.error_message}</span></p>` : ''}
-                    <h3 style="margin-top:16px;margin-bottom:8px">Request Body</h3>
-                    <pre>${JSON.stringify(log.request_body, null, 2) || 'null'}</pre>
-                    <h3 style="margin-top:16px;margin-bottom:8px">Response Body</h3>
-                    <pre>${JSON.stringify(log.response_body, null, 2) || 'null'}</pre>
-                `;
-                document.getElementById('modal-overlay').style.display = 'block';
-            } catch (e) {
-                console.error('Failed to load detail:', e);
-            }
-        }
-
-        function closeModal() {
-            document.getElementById('modal-overlay').style.display = 'none';
-        }
-
-        async function loadManifests() {
-            try {
-                const resp = await fetch('/api/manifests');
-                const manifests = await resp.json();
-                document.getElementById('manifests-list').innerHTML = `
-                    <div class="table-container">
-                        <table>
-                            <thead><tr><th>Name</th><th>Description</th><th>Active</th><th>Actions</th></tr></thead>
-                            <tbody>
-                                ${manifests.map(m => `
-                                    <tr>
-                                        <td><strong>${m.name}</strong></td>
-                                        <td>${m.description}</td>
-                                        <td>${m.active ? '<span class="badge allowed">ACTIVE</span>' : '-'}</td>
-                                        <td>
-                                            <button class="btn secondary" onclick="viewManifest('${m.file}')">View</button>
-                                            ${!m.active ? `<button class="btn" onclick="activateManifest('${m.file}')">Activate</button>` : ''}
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
+        document.getElementById('agent-team-list').innerHTML = teams.map(([sid, t]) => {
+            const elapsed = t.started ? formatDuration(t.started, t.hasActive ? null : t.ended) : '';
+            const startStr = t.started ? new Date(t.started).toLocaleString() : '';
+            const endStr = t.ended && !t.hasActive ? new Date(t.ended).toLocaleString() : '';
+            return `
+            <div class="session-card" style="${t.hasActive?'border-color:#00ff88;box-shadow:0 0 8px rgba(0,255,136,0.3)':''}" onclick="showTeamDetail('${sid}')">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <div>
+                        ${t.hasActive?'<span class="session-status active" style="font-size:10px;padding:1px 6px;margin-right:6px">LIVE</span>':''}
+                        <span style="color:#aa66ff;font-weight:bold">Team Session ${sid.substring(0,8)}</span>
+                        <span style="color:#555;margin-left:8px">${t.agents.length} agents</span>
                     </div>
-                `;
-            } catch (e) {
-                console.error('Failed to load manifests:', e);
+                    <div style="display:flex;gap:16px;align-items:center">
+                        <span style="color:#4488ff;font-weight:bold;font-size:14px">${elapsed}</span>
+                        <span class="session-cost">${formatCost(t.cost)}</span>
+                    </div>
+                </div>
+                <div style="margin-top:6px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+                    ${[...t.roles].map(r => `<span class="agent-role">${r}</span>`).join('')}
+                    <span style="color:#ffaa00;font-size:12px">${t.tools} tools</span>
+                    <span style="color:#00ff88;font-size:12px">${t.msgs} msgs</span>
+                    <span style="color:#555;font-size:11px;margin-left:auto">Started: ${startStr}${endStr ? ' &bull; Ended: ' + endStr : t.hasActive ? ' &bull; <span style="color:#00ff88">running...</span>' : ''}</span>
+                </div>
+            </div>`;
+        }).join('') || '<div style="color:#555;padding:20px">No agent teams found. Teams appear when Claude uses multi-agent/team mode.</div>';
+
+    } catch(e) { console.error('refresh error', e); }
+}
+
+// Track expanded sessions across refreshes
+window._expandedSessions = window._expandedSessions || new Set();
+
+function toggleSession(sessionId) {
+    const el = document.getElementById('sess-expand-' + sessionId);
+    if (!el) return;
+    if (el.classList.contains('open')) {
+        el.classList.remove('open');
+        window._expandedSessions.delete(sessionId);
+    } else {
+        el.classList.add('open');
+        window._expandedSessions.add(sessionId);
+    }
+}
+
+async function showDetail(id) {
+    const d = await (await fetch(`/api/logs/${id}`)).json();
+    const reqBody = typeof d.request_body==='string'?d.request_body:JSON.stringify(d.request_body,null,2);
+    const resBody = typeof d.response_body==='string'?d.response_body:JSON.stringify(d.response_body,null,2);
+    document.getElementById('detail').innerHTML = `
+        <h2>${d.action}</h2>
+        <div>
+            <span class="tag ${d.decision}" style="border:1px solid">${d.decision}</span>
+            <span class="tag" style="border:1px solid #333">${d.project}</span>
+            <span class="tag" style="border:1px solid #333">${d.response_status}</span>
+            <span class="tag" style="border:1px solid #333">${d.response_time_ms}ms</span>
+        </div>
+        <p style="color:#555;margin-top:8px">${d.timestamp}</p>
+        ${d.error_message?`<p style="color:#ff4444;margin-top:8px">${d.error_message}</p>`:''}
+        <h3>Request</h3>
+        <pre>${d.request_method} ${d.request_path}\n\n${reqBody||'No body'}</pre>
+        <h3>Response</h3>
+        <pre>${resBody||'No body'}</pre>
+    `;
+    document.getElementById('panel').classList.add('open');
+    document.getElementById('overlay').classList.add('open');
+}
+
+async function showSession(id) {
+    const s = await (await fetch(`/sessions/${id}`)).json();
+    const totalTokens = s.input_tokens + s.output_tokens + s.cache_read_tokens + s.cache_write_tokens;
+    document.getElementById('detail').innerHTML = `
+        <h2>Session ${s.session_id}</h2>
+        <div>
+            <span class="session-status ${s.status}" style="display:inline-block">${s.status}</span>
+            <span class="tag" style="border:1px solid #333">${s.project}</span>
+        </div>
+        ${s.prompt?`<p style="color:#aaa;margin-top:8px">${s.prompt}</p>`:''}
+        <p style="color:#555;margin-top:8px">Started: ${s.started_at}</p>
+        ${s.ended_at?`<p style="color:#555">Ended: ${s.ended_at}</p>`:''}
+        <p style="color:#555">Duration: ${formatDuration(s.started_at, s.ended_at)}</p>
+        ${s.container_id?`<p style="color:#555">Container: ${s.container_id}</p>`:''}
+
+        <h3>Token Usage</h3>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px">
+            <div class="stat"><h3>Input</h3><div class="val yellow" style="font-size:20px">${formatTokens(s.input_tokens)}</div></div>
+            <div class="stat"><h3>Output</h3><div class="val yellow" style="font-size:20px">${formatTokens(s.output_tokens)}</div></div>
+            <div class="stat"><h3>Cache Read</h3><div class="val blue" style="font-size:20px">${formatTokens(s.cache_read_tokens)}</div></div>
+            <div class="stat"><h3>Cache Write</h3><div class="val blue" style="font-size:20px">${formatTokens(s.cache_write_tokens)}</div></div>
+        </div>
+
+        <h3>Cost</h3>
+        <div class="stat" style="margin-top:8px"><h3>Estimated Cost</h3><div class="val purple" style="font-size:24px">${formatCost(s.total_cost_usd)}</div></div>
+
+        <h3>Last Heartbeat</h3>
+        <pre>${s.last_heartbeat || 'None'}</pre>
+
+        <h3>Agents</h3>
+        <div id="session-agents" style="margin-top:8px"><span style="color:#555">Loading...</span></div>
+    `;
+    document.getElementById('panel').classList.add('open');
+    document.getElementById('overlay').classList.add('open');
+
+    // Load child agents
+    try {
+        const agents = await (await fetch(`/agents/by-session/${id}`)).json();
+        const agentsEl = document.getElementById('session-agents');
+        if (agents.length === 0) {
+            agentsEl.innerHTML = '<span style="color:#555">No agents spawned</span>';
+        } else {
+            agentsEl.innerHTML = agents.map(a => `
+                <div class="agent-card" onclick="event.stopPropagation();showAgent('${a.agent_id}')" style="margin-bottom:6px">
+                    <span class="agent-role">${a.role || '?'}</span>
+                    <span class="agent-id">${a.agent_id.substring(0,16)}</span>
+                    <span class="agent-parent">${formatDuration(a.started_at, a.ended_at)}</span>
+                    <span class="agent-tools">${a.tool_call_count} tools</span>
+                    <span class="agent-msgs">${a.messages_sent_count} msgs</span>
+                    <span class="session-cost">${formatCost(a.total_cost_usd)}</span>
+                </div>
+            `).join('');
+        }
+    } catch(e) { console.error('load agents', e); }
+}
+
+async function showTeamDetail(sessionId) {
+    const [agents, convo] = await Promise.all([
+        fetch(`/agents/by-session/${sessionId}`).then(r => r.json()),
+        fetch(`/agents/conversation/${sessionId}`).then(r => r.json()),
+    ]);
+    const msgs = convo.messages || [];
+    const msgCount = msgs.filter(m => m.type === 'message').length;
+    const taskCount = msgs.filter(m => m.type === 'task').length;
+    const totalCost = agents.reduce((s,a) => s + (a.total_cost_usd||0), 0);
+    const roles = [...new Set(agents.map(a => a.role).filter(Boolean))];
+
+    const agentCards = agents.map(a => `
+        <div class="agent-card" onclick="event.stopPropagation();showAgent('${a.agent_id}')" style="margin-bottom:6px">
+            <span class="agent-role">${a.role || '?'}</span>
+            ${a.status==='active'?'<span class="session-status active" style="font-size:10px;padding:1px 6px">LIVE</span>':''}
+            <span class="agent-id">${a.agent_id.substring(0,16)}</span>
+            <span class="agent-parent">${formatDuration(a.started_at, a.ended_at)}</span>
+            <span class="agent-tools">${a.tool_call_count} tools</span>
+            <span class="agent-msgs">${a.messages_sent_count} msgs</span>
+            <span class="session-cost">${formatCost(a.total_cost_usd)}</span>
+        </div>
+    `).join('');
+
+    // Build detail panel with DOM manipulation (avoids template literal breakage from message content)
+    const detailEl = document.getElementById('detail');
+    detailEl.innerHTML = '';
+
+    const h2 = document.createElement('h2');
+    h2.innerHTML = 'Agent Team <span style="color:#555">session: ' + sessionId.substring(0,8) + '</span>';
+    detailEl.appendChild(h2);
+
+    const rolesDiv = document.createElement('div');
+    rolesDiv.style.marginBottom = '12px';
+    rolesDiv.innerHTML = roles.map(r => '<span class="agent-role" style="margin-right:4px">' + escapeHtml(r) + '</span>').join('') +
+        '<span style="color:#555;margin-left:8px">' + agents.length + ' agents &bull; ' + msgCount + ' messages &bull; ' + taskCount + ' task ops</span>';
+    detailEl.appendChild(rolesDiv);
+
+    // Timing info
+    const teamStarted = agents.reduce((min, a) => a.started_at && (!min || a.started_at < min) ? a.started_at : min, '');
+    const teamEnded = agents.reduce((max, a) => a.ended_at && (!max || a.ended_at > max) ? a.ended_at : max, '');
+    const teamActive = agents.some(a => a.status === 'active');
+    const teamElapsed = teamStarted ? formatDuration(teamStarted, teamActive ? null : teamEnded) : 'N/A';
+
+    const timingDiv = document.createElement('div');
+    timingDiv.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px;';
+    timingDiv.innerHTML =
+        '<div class="stat"><h3>Elapsed</h3><div class="val blue" style="font-size:24px">' + teamElapsed + '</div></div>' +
+        '<div class="stat"><h3>Started</h3><div class="val" style="font-size:14px;color:#aaa">' + (teamStarted ? new Date(teamStarted).toLocaleString() : 'N/A') + '</div></div>' +
+        '<div class="stat"><h3>Ended</h3><div class="val" style="font-size:14px;color:#aaa">' + (teamEnded && !teamActive ? new Date(teamEnded).toLocaleString() : teamActive ? '<span style="color:#00ff88">running...</span>' : 'N/A') + '</div></div>' +
+        '<div class="stat"><h3>Team Cost</h3><div class="val purple" style="font-size:24px">' + formatCost(totalCost) + '</div></div>';
+    detailEl.appendChild(timingDiv);
+
+    const agentsH3 = document.createElement('h3');
+    agentsH3.textContent = 'Agents';
+    detailEl.appendChild(agentsH3);
+    const agentsDiv = document.createElement('div');
+    agentsDiv.style.margin = '8px 0';
+    agentsDiv.innerHTML = agentCards;
+    detailEl.appendChild(agentsDiv);
+
+    const timelineH3 = document.createElement('h3');
+    timelineH3.textContent = 'Activity Timeline';
+    detailEl.appendChild(timelineH3);
+
+    // Filter toggles
+    const typeColors = {
+        message: {label:'Messages', color:'#4fc3f7', icon:'💬'},
+        task: {label:'Tasks', color:'#ffaa00', icon:'📋'},
+        thinking: {label:'Thinking', color:'#b388ff', icon:'💭'},
+        bash: {label:'Bash', color:'#aaa', icon:'$'},
+        result: {label:'Results', color:'#5a5a5a', icon:'↩'},
+        file_edit: {label:'Edits', color:'#ff6b9d', icon:'✏️'},
+        file_read: {label:'Reads', color:'#666', icon:'📖'},
+        search: {label:'Search', color:'#666', icon:'🔍'},
+        tool: {label:'Other', color:'#666', icon:'🔧'},
+        agent: {label:'Agents', color:'#b388ff', icon:'🤖'},
+    };
+    const filterDiv = document.createElement('div');
+    filterDiv.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;';
+    // Count events by type
+    const typeCounts = {};
+    msgs.forEach(m => { typeCounts[m.type] = (typeCounts[m.type]||0) + 1; });
+    // Active filters (all on by default)
+    const activeFilters = new Set(Object.keys(typeColors));
+    // Select All toggle
+    const allBtn = document.createElement('button');
+    allBtn.style.cssText = 'padding:3px 8px;border-radius:10px;font-size:11px;cursor:pointer;border:1px solid #fff4;background:#fff2;color:#ccc;font-weight:bold;';
+    allBtn.textContent = '⚡ All';
+    allBtn.onclick = () => {
+        const allOn = activeFilters.size === Object.keys(typeCounts).length;
+        const filterBtns = filterDiv.querySelectorAll('button[data-type]');
+        if (allOn) {
+            activeFilters.clear();
+            filterBtns.forEach(b => b.style.opacity='0.3');
+            allBtn.style.opacity='0.3';
+        } else {
+            Object.keys(typeCounts).forEach(t => activeFilters.add(t));
+            filterBtns.forEach(b => b.style.opacity='1');
+            allBtn.style.opacity='1';
+        }
+        renderTimelineEvents();
+    };
+    filterDiv.appendChild(allBtn);
+
+    Object.entries(typeColors).forEach(([type, cfg]) => {
+        if (!typeCounts[type]) return;
+        const btn = document.createElement('button');
+        btn.style.cssText = `padding:3px 8px;border-radius:10px;font-size:11px;cursor:pointer;border:1px solid ${cfg.color}44;background:${cfg.color}22;color:${cfg.color};`;
+        btn.textContent = `${cfg.icon} ${cfg.label} (${typeCounts[type]||0})`;
+        btn.dataset.type = type;
+        btn.onclick = () => {
+            if (activeFilters.has(type)) { activeFilters.delete(type); btn.style.opacity='0.3'; }
+            else { activeFilters.add(type); btn.style.opacity='1'; }
+            // Update All button state
+            allBtn.style.opacity = activeFilters.size === Object.keys(typeCounts).length ? '1' : '0.3';
+            renderTimelineEvents();
+        };
+        filterDiv.appendChild(btn);
+    });
+    detailEl.appendChild(filterDiv);
+
+    const timelineDiv = document.createElement('div');
+    timelineDiv.className = 'convo-timeline';
+    timelineDiv.style.marginTop = '4px';
+
+    function renderTimelineEvents() {
+        timelineDiv.innerHTML = '';
+        const visible = msgs.filter(m => activeFilters.has(m.type));
+        if (!visible.length) {
+            timelineDiv.innerHTML = '<p style="color:#555">No matching events.</p>';
+            return;
+        }
+        visible.forEach(m => {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'convo-msg';
+            const fromLabel = (m.from_role || (m.from_agent||'').substring(0,12) || '?');
+            const timeStr = m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : '';
+            const body = escapeHtml(m.message || '');
+            const isLead = (m.from_role === 'Lead');
+            const cfg = typeColors[m.type] || typeColors.tool;
+
+            if (m.type === 'message') {
+                const isReceived = (m.from_role === 'received');
+                if (isLead) { msgDiv.style.borderLeftColor = '#00ff88'; msgDiv.style.background = '#000a04'; }
+                if (isReceived) { msgDiv.style.borderLeftColor = '#ffa726'; msgDiv.style.background = '#0a0800'; }
+                const fc = isReceived ? '#ffa726' : (isLead ? '#00ff88' : cfg.color);
+                const arrow = isReceived ? '&larr;' : '&rarr;';
+                const fromDisplay = isReceived ? (m.to || 'team-lead') : fromLabel;
+                const toDisplay = isReceived ? fromLabel : (m.to || 'broadcast');
+                msgDiv.innerHTML = '<div class="convo-header">' +
+                    '<span class="convo-from" style="color:' + fc + '">' + escapeHtml(fromDisplay) + '</span>' +
+                    '<span class="convo-arrow">' + arrow + '</span>' +
+                    '<span class="convo-to">' + escapeHtml(toDisplay) + '</span>' +
+                    '<span class="convo-time">' + timeStr + '</span></div>' +
+                    '<div class="convo-body">' + body + '</div>';
+            } else if (m.type === 'task') {
+                const color = isLead ? '#00ff88' : cfg.color;
+                const bg = isLead ? '#000a04' : '#0a0a00';
+                msgDiv.style.borderLeftColor = color; msgDiv.style.background = bg;
+                msgDiv.innerHTML = '<div class="convo-header">' +
+                    '<span class="convo-from" style="color:' + color + '">' + escapeHtml(fromLabel) + '</span>' +
+                    '<span class="convo-arrow" style="color:' + color + '">⚡</span>' +
+                    '<span class="convo-to" style="color:' + color + '">task</span>' +
+                    '<span class="convo-time">' + timeStr + '</span></div>' +
+                    '<div class="convo-body" style="color:' + color + '">' + body + '</div>';
+            } else if (m.type === 'thinking') {
+                msgDiv.style.borderLeftColor = cfg.color + '44';
+                msgDiv.style.background = '#0a0008';
+                msgDiv.innerHTML = '<div class="convo-header">' +
+                    '<span class="convo-from" style="color:' + cfg.color + '">' + escapeHtml(fromLabel) + '</span>' +
+                    '<span class="convo-arrow" style="color:' + cfg.color + '">💭</span>' +
+                    '<span class="convo-to" style="color:#555;font-size:11px">reasoning</span>' +
+                    '<span class="convo-time">' + timeStr + '</span></div>' +
+                    '<div class="convo-body" style="color:#c0a0ff;font-size:12px;white-space:pre-wrap">' + body + '</div>';
+            } else if (m.type === 'result') {
+                msgDiv.style.borderLeftColor = '#33333366';
+                msgDiv.style.background = '#050505';
+                const toolLabel = m.tool_name ? ' (' + escapeHtml(m.tool_name) + ')' : '';
+                msgDiv.innerHTML = '<div class="convo-header">' +
+                    '<span class="convo-from" style="color:#555">' + escapeHtml(fromLabel) + '</span>' +
+                    '<span class="convo-arrow" style="color:#444">↩</span>' +
+                    '<span class="convo-to" style="color:#555;font-size:11px">result' + toolLabel + '</span>' +
+                    '<span class="convo-time">' + timeStr + '</span></div>' +
+                    '<div class="convo-body" style="color:#777;font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:200px;overflow-y:auto">' + body + '</div>';
+            } else {
+                // Tool calls: bash, file_edit, file_read, search, agent, other
+                msgDiv.style.borderLeftColor = cfg.color + '66';
+                msgDiv.style.background = '#0a0a0a';
+                msgDiv.innerHTML = '<div class="convo-header">' +
+                    '<span class="convo-from" style="color:' + cfg.color + '">' + escapeHtml(fromLabel) + '</span>' +
+                    '<span class="convo-arrow" style="color:' + cfg.color + '66">' + cfg.icon + '</span>' +
+                    '<span class="convo-to" style="color:#555;font-size:11px">' + m.type + '</span>' +
+                    '<span class="convo-time">' + timeStr + '</span></div>' +
+                    '<div class="convo-body" style="color:#999;font-size:12px;font-family:monospace">' + body + '</div>';
             }
+            timelineDiv.appendChild(msgDiv);
+        });
+    }
+    renderTimelineEvents();
+    detailEl.appendChild(timelineDiv);
+
+    document.getElementById('panel').classList.add('open');
+    document.getElementById('overlay').classList.add('open');
+}
+
+async function showConversation(sessionId) {
+    const data = await (await fetch(`/agents/conversation/${sessionId}`)).json();
+    const msgs = data.messages || [];
+    const msgCount = msgs.filter(m => m.type === 'message').length;
+    const taskCount = msgs.filter(m => m.type === 'task').length;
+    const timeline = msgs.map(m => {
+        if (m.type === 'task') {
+            return `<div class="convo-msg" style="border-left-color:#ffaa00;background:#0a0a00">
+                <div class="convo-header">
+                    <span class="convo-from" style="color:#ffaa00">${m.from_role || m.from_agent.substring(0,12)}</span>
+                    <span class="convo-arrow" style="color:#ffaa00">⚡</span>
+                    <span class="convo-to" style="color:#ffaa00">task</span>
+                    <span class="convo-time">${m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : ''}</span>
+                </div>
+                <div class="convo-body" style="color:#ffaa00">${escapeHtml(m.message)}</div>
+            </div>`;
+        }
+        return `<div class="convo-msg">
+            <div class="convo-header">
+                <span class="convo-from">${m.from_role || m.from_agent.substring(0,12)}</span>
+                <span class="convo-arrow">→</span>
+                <span class="convo-to">${m.to || 'broadcast'}</span>
+                <span class="convo-time">${m.timestamp ? new Date(m.timestamp).toLocaleTimeString() : ''}</span>
+            </div>
+            <div class="convo-body">${escapeHtml(m.message)}</div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('detail').innerHTML = `
+        <h2>Agent Activity <span style="color:#555">session: ${sessionId.substring(0,8)}</span></h2>
+        <p style="color:#555;margin-bottom:12px">${data.agent_count} agents &bull; ${msgCount} messages &bull; ${taskCount} task ops</p>
+        <div class="convo-timeline">
+            ${timeline || '<p style="color:#555">No agent activity found in this session.</p>'}
+        </div>
+    `;
+    document.getElementById('panel').classList.add('open');
+    document.getElementById('overlay').classList.add('open');
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/`/g,'&#96;').replace(/\$\{/g,'&#36;{');
+}
+
+async function showAgent(id) {
+    const a = await (await fetch(`/agents/${id}`)).json();
+    const toolList = (a.tool_calls || []).map(t =>
+        `<li><span class="tool-name">${t.name}</span><span class="tool-summary">${t.summary||''}</span></li>`
+    ).join('');
+    const msgList = (a.messages_sent || []).map(m =>
+        `<div class="msg-card"><div class="msg-to">→ ${m.to}</div><div class="msg-preview">${m.preview||''}</div></div>`
+    ).join('');
+    const fileList = (a.files_modified || []).map(f =>
+        `<span class="file-tag">${f}</span>`
+    ).join('');
+
+    document.getElementById('detail').innerHTML = `
+        <h2><span class="agent-role" style="display:inline-block;margin-right:8px">${a.role||'UNKNOWN'}</span> ${a.agent_id.substring(0,20)}</h2>
+        <div>
+            <span class="tag" style="border:1px solid #333">${a.project}</span>
+            <span class="tag" style="border:1px solid #333">session: ${a.parent_session_id.substring(0,8)}</span>
+            <span class="tag" style="border:1px solid #333">${a.model||''}</span>
+        </div>
+        <p style="color:#555;margin-top:8px">Started: ${a.started_at}</p>
+        ${a.ended_at?`<p style="color:#555">Ended: ${a.ended_at}</p>`:''}
+        <p style="color:#555">Duration: ${formatDuration(a.started_at, a.ended_at)}</p>
+
+        <h3>Token Usage</h3>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px">
+            <div class="stat"><h3>Input</h3><div class="val yellow" style="font-size:20px">${formatTokens(a.input_tokens)}</div></div>
+            <div class="stat"><h3>Output</h3><div class="val yellow" style="font-size:20px">${formatTokens(a.output_tokens)}</div></div>
+            <div class="stat"><h3>Cache Read</h3><div class="val blue" style="font-size:20px">${formatTokens(a.cache_read_tokens)}</div></div>
+            <div class="stat"><h3>Cache Write</h3><div class="val blue" style="font-size:20px">${formatTokens(a.cache_write_tokens)}</div></div>
+        </div>
+        <div class="stat" style="margin-top:8px"><h3>Agent Cost</h3><div class="val purple" style="font-size:24px">${formatCost(a.total_cost_usd)}</div></div>
+
+        <h3>Tool Calls (${a.tool_call_count})</h3>
+        ${toolList ? `<ul class="tool-list">${toolList}</ul>` : '<p style="color:#555">No tool calls</p>'}
+
+        <h3>Messages Sent (${a.messages_sent_count})</h3>
+        ${msgList || '<p style="color:#555">No messages</p>'}
+
+        <h3>Files Modified (${a.files_modified_count})</h3>
+        <div style="margin-top:4px">${fileList || '<span style="color:#555">No files</span>'}</div>
+    `;
+    document.getElementById('panel').classList.add('open');
+    document.getElementById('overlay').classList.add('open');
+}
+
+function closePanel() {
+    document.getElementById('panel').classList.remove('open');
+    document.getElementById('overlay').classList.remove('open');
+    window._panelHistory = [];
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closePanel();});
+document.getElementById('f-decision').onchange=refresh;
+document.getElementById('f-session-status').onchange=refresh;
+document.getElementById('f-session-project').onchange=refresh;
+document.getElementById('f-session-sort').onchange=refresh;
+let t; document.getElementById('f-search').oninput=()=>{clearTimeout(t);t=setTimeout(refresh,300);};
+refresh(); setInterval(refresh,3000);
+loadProjectCards();
+
+let manifestData = null;
+let currentProject = '';
+
+async function loadProjectCards() {
+    try {
+        const projects = await (await fetch('/api/manifests')).json();
+        document.getElementById('project-cards').innerHTML = projects.map(p => `
+            <div onclick="openProject('${p.file}')" style="background:#1a1a1a;border:1px solid ${p.active?'#00ff88':'#333'};border-radius:6px;padding:16px;cursor:pointer;display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center">
+                <div>
+                    <div style="font-size:18px;font-weight:bold;color:${p.active?'#00ff88':'#4488ff'}">${p.name}</div>
+                    <div style="color:#888;margin-top:4px">${p.description || 'No description'}</div>
+                </div>
+                <div style="text-align:right">
+                    ${p.active ? '<span class="sso active">ACTIVE</span>' : '<span style="color:#555;font-size:12px">inactive</span>'}
+                </div>
+            </div>
+        `).join('') || '<div style="color:#555;padding:20px">No projects yet. Click + New Project to create one.</div>';
+    } catch(e) { console.error('loadProjectCards', e); }
+}
+
+function openProject(project) {
+    loadManifest(project);
+    // Show project detail tab without changing the tab bar highlight
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-project-detail').classList.add('active');
+}
+
+async function loadManifest(project) {
+    try {
+        const url = project ? `/api/manifest?project=${project}` : '/api/manifest';
+        const resp = await fetch(url);
+        manifestData = await resp.json();
+        currentProject = project || manifestData.project;
+        document.getElementById('yaml-editor').value = manifestData.yaml;
+        document.getElementById('detail-project-title').textContent = manifestData.project;
+        document.getElementById('detail-active-badge').style.display = manifestData.active ? 'inline-block' : 'none';
+        document.getElementById('save-status').textContent = '';
+        loadAgentPicker();
+        loadClaudeMd();
+        loadHookMessage();
+        loadProjReqProgress(currentProject);
+    } catch(e) {
+        document.getElementById('save-status').textContent = 'Error loading manifest: ' + e;
+    }
+}
+
+
+async function loadAgentPicker() {
+    try {
+        const [roles, teams] = await Promise.all([
+            fetch('/api/agents-library/roles').then(r => r.json()),
+            fetch('/api/agents-library/teams').then(r => r.json()),
+        ]);
+        libraryRoles = roles;
+        libraryTeams = teams;
+
+        // Parse current manifest to find existing agents config
+        const yaml = document.getElementById('yaml-editor').value;
+        let currentTeam = '';
+        let currentRoles = [];
+
+        // Simple YAML parsing for agents section
+        const teamMatch = yaml.match(/agents:\s*\n\s+team:\s*(\S+)/);
+        if (teamMatch) {
+            currentTeam = teamMatch[1];
+        }
+        const rolesMatch = yaml.match(/agents:\s*\n\s+roles:\s*\n((?:\s+-\s*\S+\n?)+)/);
+        if (rolesMatch) {
+            currentRoles = rolesMatch[1].match(/- (\S+)/g)?.map(m => m.replace('- ','')) || [];
+        }
+        // Also handle agents as a simple list
+        const listMatch = yaml.match(/agents:\s*\n((?:\s+-\s*\S+\n?)+)/);
+        if (!currentTeam && !rolesMatch && listMatch) {
+            currentRoles = listMatch[1].match(/- (\S+)/g)?.map(m => m.replace('- ','')) || [];
         }
 
-        async function viewManifest(name) {
-            try {
-                const resp = await fetch(`/api/manifest?project=${name}`);
-                const data = await resp.json();
-                document.getElementById('modal-title').textContent = `Manifest: ${data.project}`;
-                document.getElementById('modal-content').innerHTML = `
-                    <pre>${data.yaml}</pre>
-                    <h3 style="margin-top:16px;margin-bottom:8px">Parsed Permissions</h3>
-                    <pre>${JSON.stringify(data.permissions, null, 2)}</pre>
-                `;
-                document.getElementById('modal-overlay').style.display = 'block';
-            } catch (e) {
-                console.error('Failed to load manifest:', e);
-            }
+        // Show current agents
+        const currentDiv = document.getElementById('current-agents');
+        const currentList = document.getElementById('current-agents-list');
+        const currentMode = document.getElementById('current-agents-mode');
+        if (currentTeam) {
+            currentDiv.style.display = 'block';
+            currentMode.textContent = 'team: ' + currentTeam;
+            const team = teams.find(t => t.name === currentTeam);
+            const teamRoles = team ? team.roles : [currentTeam];
+            currentList.innerHTML = teamRoles.map(r =>
+                `<span class="agent-role" style="margin-right:2px">${escapeHtml(r)}</span>`
+            ).join('') + `<button onclick="removeAgents()" style="background:#2a0a0a;border:1px solid #ff4444;color:#ff4444;padding:2px 8px;border-radius:3px;cursor:pointer;font-family:monospace;font-size:11px;margin-left:8px">Remove All</button>`;
+        } else if (currentRoles.length > 0) {
+            currentDiv.style.display = 'block';
+            currentMode.textContent = 'individual roles';
+            currentList.innerHTML = currentRoles.map(r =>
+                `<span class="agent-role" style="margin-right:2px">${escapeHtml(r)}</span>
+                 <button onclick="removeRole('${escapeHtml(r)}')" style="background:none;border:none;color:#ff4444;cursor:pointer;font-size:14px;padding:0 2px" title="Remove">×</button>`
+            ).join('') + `<button onclick="removeAgents()" style="background:#2a0a0a;border:1px solid #ff4444;color:#ff4444;padding:2px 8px;border-radius:3px;cursor:pointer;font-family:monospace;font-size:11px;margin-left:8px">Remove All</button>`;
+        } else {
+            currentDiv.style.display = 'none';
         }
 
-        async function activateManifest(name) {
-            try {
-                await fetch('/api/activate', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({project: name}),
-                });
-                loadStats();
-                loadManifests();
-            } catch (e) {
-                console.error('Failed to activate:', e);
-            }
+        // Determine which roles are already added
+        let activeRoles = new Set();
+        if (currentTeam) {
+            const team = teams.find(t => t.name === currentTeam);
+            if (team) team.roles.forEach(r => activeRoles.add(r));
         }
+        currentRoles.forEach(r => activeRoles.add(r));
 
-        // Filter handlers
-        document.getElementById('filter-decision').addEventListener('change', () => { currentOffset = 0; loadLogs(); });
-        document.getElementById('filter-search').addEventListener('keyup', (e) => { if (e.key === 'Enter') { currentOffset = 0; loadLogs(); } });
+        // Team buttons
+        document.getElementById('team-buttons').innerHTML = teams.map(t => {
+            const isActive = currentTeam === t.name;
+            const bg = isActive ? '#00ff88' : '#1a1a1a';
+            const fg = isActive ? '#000' : '#00ff88';
+            const border = isActive ? '#00ff88' : '#333';
+            return `<button onclick="setTeam('${escapeHtml(t.name)}')" style="background:${bg};color:${fg};border:1px solid ${border};padding:4px 12px;border-radius:4px;cursor:pointer;font-family:monospace;font-size:12px;font-weight:bold" title="${escapeHtml(t.description)} (${t.roles.length} roles)">
+                ${escapeHtml(t.name)} <span style="opacity:0.6;font-weight:normal">(${t.roles.length})</span>
+            </button>`;
+        }).join('');
 
-        // Keyboard shortcut
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+        // Role picker grid — left side = drill into prompt, right side = toggle on/off
+        document.getElementById('role-picker-grid').innerHTML = roles.map(r => {
+            const isActive = activeRoles.has(r.name);
+            const borderColor = isActive ? '#00ff88' : '#333';
+            const bg = isActive ? '#0a1a0a' : '#1a1a1a';
+            const toggleBg = isActive ? '#00ff88' : '#333';
+            const toggleFg = isActive ? '#000' : '#888';
+            const toggleText = isActive ? '✓ ON' : '+ ADD';
+            return `<div style="background:${bg};border:1px solid ${borderColor};border-radius:6px;display:grid;grid-template-columns:1fr auto;overflow:hidden">
+                <div style="padding:12px;cursor:pointer" onclick="showLibraryRole('${escapeHtml(r.name)}')">
+                    <div style="color:#aa66ff;font-weight:bold;font-size:14px">${escapeHtml(r.name)}</div>
+                    <div style="color:#aaa;font-size:12px;margin-top:4px">${escapeHtml(r.description)}</div>
+                    <div style="margin-top:6px">${r.standards.map(s => '<span class="lib-std-tag" style="cursor:pointer" onclick="event.stopPropagation();showLibraryStandard(\'' + escapeHtml(s) + '\')">' + escapeHtml(s) + '</span>').join('')}
+                        <span style="color:#555;font-size:11px;margin-left:4px">${r.prompt_lines} lines</span>
+                    </div>
+                </div>
+                <div onclick="toggleRole('${escapeHtml(r.name)}')" style="background:${toggleBg};color:${toggleFg};display:flex;align-items:center;justify-content:center;padding:0 16px;cursor:pointer;font-family:monospace;font-size:12px;font-weight:bold;min-width:70px;border-left:1px solid ${borderColor}">${toggleText}</div>
+            </div>`;
+        }).join('');
 
-        // Auto-refresh
-        loadStats();
-        loadLogs();
-        setInterval(loadStats, 15000);
-        setInterval(loadLogs, 10000);
-    </script>
-</body>
-</html>
+        document.getElementById('agent-picker-status').textContent = `${roles.length} roles, ${teams.length} teams available`;
+
+    } catch(e) {
+        console.error('loadAgentPicker', e);
+        document.getElementById('agent-picker-status').textContent = 'Failed to load agents — check /agents mount';
+    }
+}
+
+// ═══ Claude MD Editor ═══
+
+function loadClaudeMd() {
+    const yaml = document.getElementById('yaml-editor').value;
+    const lines = yaml.split('\n');
+    let startIdx = -1;
+    let content = '';
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(/^claude_md:\s*\|?\s*$/)) {
+            startIdx = i;
+            break;
+        }
+    }
+
+    if (startIdx === -1) {
+        document.getElementById('claude-md-editor').value = '';
+        return;
+    }
+
+    // Collect indented lines below claude_md:
+    let contentLines = [];
+    for (let i = startIdx + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === '') { contentLines.push(''); continue; }
+        if (line[0] !== ' ' && line[0] !== '\t') break;
+        // Remove leading 2-space indent
+        contentLines.push(line.replace(/^  /, ''));
+    }
+
+    // Trim trailing blank lines
+    while (contentLines.length > 0 && contentLines[contentLines.length - 1].trim() === '') contentLines.pop();
+
+    document.getElementById('claude-md-editor').value = contentLines.join('\n');
+}
+
+function saveClaudeMd() {
+    let yaml = document.getElementById('yaml-editor').value;
+    const newContent = document.getElementById('claude-md-editor').value;
+
+    // Remove existing claude_md section
+    const lines = yaml.split('\n');
+    let startIdx = -1;
+    let endIdx = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(/^claude_md:\s*\|?\s*$/)) {
+            startIdx = i;
+            break;
+        }
+    }
+
+    if (startIdx !== -1) {
+        endIdx = startIdx + 1;
+        while (endIdx < lines.length) {
+            const line = lines[endIdx];
+            if (line.trim() === '') { endIdx++; continue; }
+            if (line[0] !== ' ' && line[0] !== '\t') break;
+            endIdx++;
+        }
+        lines.splice(startIdx, endIdx - startIdx);
+        yaml = lines.join('\n').replace(/\n{3,}/g, '\n\n');
+    }
+
+    // Append new claude_md section
+    if (newContent.trim()) {
+        const indented = newContent.split('\n').map(l => '  ' + l).join('\n');
+        yaml = yaml.replace(/\n+$/, '') + '\n\nclaude_md: |\n' + indented + '\n';
+    }
+
+    document.getElementById('yaml-editor').value = yaml;
+    document.getElementById('claude-md-status').innerHTML = '<span class="yellow">Updated in YAML — click main Save to persist</span>';
+
+    // Auto-save to disk
+    saveManifest();
+}
+
+// ═══ Hook Message Editor ═══
+
+const DEFAULT_HOOK_MESSAGE = `═══ GATEWAY RULES ═══
+- ALL AWS access goes through: gw.sh /aws '{...}'
+- ALL git push goes through: gw.sh /git/push '{...}'
+- NEVER install AWS CLI or configure credentials
+- NEVER git push directly — always use gw.sh
+- Run gw.sh /whoami to see your permissions
+- 403 = outside your scope, do not retry
+- All operations are audited
+═══════════════════════`;
+
+function loadHookMessage() {
+    const yaml = document.getElementById('yaml-editor').value;
+    const lines = yaml.split('\n');
+    let startIdx = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(/^hook_message:\s*\|?\s*$/)) {
+            startIdx = i;
+            break;
+        }
+    }
+
+    if (startIdx === -1) {
+        // No custom hook — show default
+        document.getElementById('hook-message-editor').value = DEFAULT_HOOK_MESSAGE;
+        document.getElementById('hook-message-status').innerHTML = '<span style="color:#555">Using default gateway rules (not in manifest)</span>';
+        return;
+    }
+
+    let contentLines = [];
+    for (let i = startIdx + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.trim() === '') { contentLines.push(''); continue; }
+        if (line[0] !== ' ' && line[0] !== '\t') break;
+        contentLines.push(line.replace(/^  /, ''));
+    }
+    while (contentLines.length > 0 && contentLines[contentLines.length - 1].trim() === '') contentLines.pop();
+
+    document.getElementById('hook-message-editor').value = contentLines.join('\n');
+    document.getElementById('hook-message-status').innerHTML = '<span style="color:#555">Custom hook from manifest</span>';
+}
+
+function saveHookMessage() {
+    let yaml = document.getElementById('yaml-editor').value;
+    const newContent = document.getElementById('hook-message-editor').value;
+
+    // Remove existing hook_message section
+    const lines = yaml.split('\n');
+    let startIdx = -1;
+    let endIdx = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(/^hook_message:\s*\|?\s*$/)) {
+            startIdx = i;
+            break;
+        }
+    }
+
+    if (startIdx !== -1) {
+        endIdx = startIdx + 1;
+        while (endIdx < lines.length) {
+            const line = lines[endIdx];
+            if (line.trim() === '') { endIdx++; continue; }
+            if (line[0] !== ' ' && line[0] !== '\t') break;
+            endIdx++;
+        }
+        lines.splice(startIdx, endIdx - startIdx);
+        yaml = lines.join('\n').replace(/\n{3,}/g, '\n\n');
+    }
+
+    // Only add to manifest if it differs from default
+    if (newContent.trim() && newContent.trim() !== DEFAULT_HOOK_MESSAGE.trim()) {
+        const indented = newContent.split('\n').map(l => '  ' + l).join('\n');
+        yaml = yaml.replace(/\n+$/, '') + '\n\nhook_message: |\n' + indented + '\n';
+    }
+
+    document.getElementById('yaml-editor').value = yaml;
+    document.getElementById('hook-message-status').innerHTML = '<span class="yellow">Updated in YAML — saving...</span>';
+    saveManifest();
+}
+
+function resetHookMessage() {
+    document.getElementById('hook-message-editor').value = DEFAULT_HOOK_MESSAGE;
+    // Remove hook_message from YAML (will use default)
+    let yaml = document.getElementById('yaml-editor').value;
+    const lines = yaml.split('\n');
+    let startIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(/^hook_message:\s*\|?\s*$/)) { startIdx = i; break; }
+    }
+    if (startIdx !== -1) {
+        let endIdx = startIdx + 1;
+        while (endIdx < lines.length) {
+            const line = lines[endIdx];
+            if (line.trim() === '') { endIdx++; continue; }
+            if (line[0] !== ' ' && line[0] !== '\t') break;
+            endIdx++;
+        }
+        lines.splice(startIdx, endIdx - startIdx);
+        yaml = lines.join('\n').replace(/\n{3,}/g, '\n\n');
+        document.getElementById('yaml-editor').value = yaml;
+        saveManifest();
+    }
+    document.getElementById('hook-message-status').innerHTML = '<span style="color:#555">Using default gateway rules</span>';
+}
+
+// ═══ YAML Agent Section Manipulation ═══
+// Dead simple: split into lines, find "agents:" at col 0, nuke that block, re-insert.
+
+function _removeAgentsSection(yaml) {
+    const lines = yaml.split('\n');
+    let startIdx = -1;
+    let endIdx = -1;
+
+    // Find the line that starts with "agents:" (no leading whitespace)
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trimEnd() === 'agents:' || lines[i].match(/^agents:\s/)) {
+            startIdx = i;
+            break;
+        }
+    }
+    if (startIdx === -1) return yaml; // no agents section
+
+    // Find where it ends: next line that starts at column 0 and isn't blank
+    endIdx = startIdx + 1;
+    while (endIdx < lines.length) {
+        const line = lines[endIdx];
+        if (line.trim() === '') { endIdx++; continue; } // skip blanks
+        if (line[0] !== ' ' && line[0] !== '\t') break;  // hit next top-level key
+        endIdx++;
+    }
+
+    // Remove lines [startIdx, endIdx)
+    lines.splice(startIdx, endIdx - startIdx);
+
+    // Clean excess blank lines
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
+function _findInsertPoint(yaml) {
+    // Find line index to insert agents block (before claude_md: or at end)
+    const lines = yaml.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].match(/^claude_md:/)) return i;
+    }
+    return lines.length;
+}
+
+function _spliceBlock(yaml, block) {
+    const lines = yaml.split('\n');
+    const idx = _findInsertPoint(yaml);
+    const blockLines = block.split('\n').filter(l => l !== ''); // no empty lines in block
+    // Ensure blank line before
+    if (idx > 0 && lines[idx - 1].trim() !== '') blockLines.unshift('');
+    // Ensure blank line after
+    blockLines.push('');
+    lines.splice(idx, 0, ...blockLines);
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
+function _updateYaml(yaml) {
+    document.getElementById('yaml-editor').value = yaml;
+    document.getElementById('save-status').innerHTML = '<span class="yellow">Unsaved — click Save to apply</span>';
+    loadAgentPicker();
+}
+
+function _getCurrentRoles(yaml) {
+    const lines = yaml.split('\n');
+    let inAgents = false;
+    let teamName = '';
+    let roles = [];
+    let inRolesList = false;
+
+    for (const line of lines) {
+        if (line.match(/^agents:/)) { inAgents = true; inRolesList = false; continue; }
+        if (inAgents && line[0] !== ' ' && line[0] !== '\t' && line.trim() !== '') { inAgents = false; break; }
+        if (!inAgents) continue;
+
+        const teamM = line.match(/^\s+team:\s*(\S+)/);
+        if (teamM) {
+            teamName = teamM[1];
+            const team = libraryTeams.find(t => t.name === teamName);
+            return { mode: 'team', team: teamName, roles: team ? [...team.roles] : [] };
+        }
+        if (line.match(/^\s+roles:\s*$/)) { inRolesList = true; continue; }
+        if (inRolesList) {
+            const rm = line.match(/^\s+-\s*(\S+)/);
+            if (rm) roles.push(rm[1]);
+        }
+    }
+    if (roles.length > 0) return { mode: 'roles', team: '', roles };
+    return { mode: 'none', team: '', roles: [] };
+}
+
+function setTeam(teamName) {
+    let yaml = document.getElementById('yaml-editor').value;
+    yaml = _removeAgentsSection(yaml);
+    yaml = _spliceBlock(yaml, `agents:\n  team: ${teamName}`);
+    _updateYaml(yaml);
+}
+
+function toggleRole(roleName) {
+    let yaml = document.getElementById('yaml-editor').value;
+    const current = _getCurrentRoles(yaml);
+    let roles = [...current.roles];
+
+    const idx = roles.indexOf(roleName);
+    if (idx >= 0) roles.splice(idx, 1);
+    else roles.push(roleName);
+
+    yaml = _removeAgentsSection(yaml);
+    if (roles.length > 0) {
+        const roleLines = roles.map(r => `    - ${r}`).join('\n');
+        yaml = _spliceBlock(yaml, `agents:\n  roles:\n${roleLines}`);
+    }
+    _updateYaml(yaml);
+}
+
+function removeRole(roleName) {
+    toggleRole(roleName);
+}
+
+function removeAgents() {
+    let yaml = document.getElementById('yaml-editor').value;
+    yaml = _removeAgentsSection(yaml);
+    _updateYaml(yaml);
+}
+
+async function saveManifest() {
+    const yaml = document.getElementById('yaml-editor').value;
+    const btn = document.getElementById('save-btn');
+    const status = document.getElementById('save-status');
+    btn.textContent = 'Saving...';
+    btn.disabled = true;
+    try {
+        const resp = await fetch('/api/manifest', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({yaml, project: currentProject})
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            status.innerHTML = `<span class="green">Saved!${data.active ? ' Policy reloaded.' : ''}</span>`;
+            loadAgentPicker();
+        } else {
+            status.innerHTML = `<span class="red">Error: ${data.detail || JSON.stringify(data)}</span>`;
+        }
+    } catch(e) {
+        status.innerHTML = `<span class="red">Error: ${e}</span>`;
+    }
+    btn.textContent = 'Save';
+    btn.disabled = false;
+}
+
+function showNewProject() {
+    document.getElementById('new-project-form').style.display = 'block';
+    document.getElementById('new-project-name').focus();
+}
+
+async function createProject() {
+    const name = document.getElementById('new-project-name').value.trim();
+    if (!name) return;
+    const template = `project:
+  name: ${name}
+  description: ""
+
+aws:
+  account: ""
+  region: us-east-1
+  services: {}
+
+git:
+  push: false
+  repos: []
+`;
+    try {
+        const resp = await fetch('/api/manifest', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name, yaml: template})
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            document.getElementById('new-project-form').style.display = 'none';
+            document.getElementById('new-project-name').value = '';
+            await loadProjectCards();
+            openProject(name);
+        } else {
+            alert(data.detail || 'Error creating project');
+        }
+    } catch(e) { alert('Error: ' + e); }
+}
+

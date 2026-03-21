@@ -1,0 +1,67 @@
+#!/bin/bash
+# YOLO Gateway Launcher
+# Spawns Claude Code in a clean subprocess with project-specific env vars loaded.
+# The agent inherits the vars but never sees the .env file.
+#
+# Usage: ./yolo <project-name> [claude args...]
+# Example: ./yolo my-project
+#          ./yolo my-project --dangerously-skip-permissions
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECTS_DIR="${YOLO_PROJECTS_DIR:-$SCRIPT_DIR/projects}"
+
+PROJECT="${1:?Usage: yolo <project-name> [claude args...]}"
+shift
+
+ENV_FILE="$PROJECTS_DIR/$PROJECT/.env"
+MANIFEST="$PROJECTS_DIR/$PROJECT.yml"
+
+# Validate project exists
+if [ ! -f "$ENV_FILE" ] && [ ! -f "$MANIFEST" ]; then
+    echo "Error: project '$PROJECT' not found"
+    echo "Expected: $ENV_FILE or $MANIFEST"
+    echo ""
+    echo "Available projects:"
+    for d in "$PROJECTS_DIR"/*/; do
+        [ -d "$d" ] && echo "  $(basename "$d")"
+    done
+    exit 1
+fi
+
+# Build the env to pass through to the subprocess
+# Start clean but keep essentials from host
+PASS_THROUGH=(
+    "HOME=$HOME"
+    "PATH=$PATH"
+    "USER=${USER:-}"
+    "SHELL=${SHELL:-/bin/bash}"
+    "TERM=${TERM:-xterm-256color}"
+    "LANG=${LANG:-en_US.UTF-8}"
+    "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-}"
+    "SSH_AUTH_SOCK=${SSH_AUTH_SOCK:-}"
+    "GATEWAY_URL=${GATEWAY_URL:-http://localhost:9000}"
+)
+
+# If manifest exists, tell the gateway which project is active
+if [ -f "$MANIFEST" ]; then
+    PASS_THROUGH+=("YOLO_PROJECT_MANIFEST=$MANIFEST")
+fi
+
+echo "YOLO Gateway Launcher"
+echo "  Project: $PROJECT"
+[ -f "$ENV_FILE" ] && echo "  Env: $ENV_FILE ($(grep -c '=' "$ENV_FILE" 2>/dev/null || echo 0) vars)"
+[ -f "$MANIFEST" ] && echo "  Manifest: $MANIFEST"
+echo ""
+
+# Spawn Claude in clean subprocess with project env layered on
+env -i "${PASS_THROUGH[@]}" bash -c "
+    # Load project env if it exists
+    if [ -f '$ENV_FILE' ]; then
+        set -a
+        source '$ENV_FILE'
+        set +a
+    fi
+    exec claude \"\$@\"
+" -- "$@"

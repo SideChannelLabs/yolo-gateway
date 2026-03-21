@@ -66,6 +66,7 @@ class AWSAuthManager:
             for profile, cfg in self._sso_config.items():
                 if cfg.get("account_id") == account_id and cfg.get("role_name") == sso_role:
                     return profile
+            # No exact match — fall back to account-only match but warn
             print(f"  WARNING: No profile found with role '{sso_role}' for account {account_id}, "
                   f"using default profile '{self._profile_map[account_id]}'")
 
@@ -99,7 +100,7 @@ class AWSAuthManager:
 
             # Register client
             client_reg = oidc.register_client(
-                clientName="yolo-gateway",
+                clientName="yolomode-gateway",
                 clientType="public",
             )
 
@@ -245,6 +246,7 @@ class AWSAuthManager:
 
     def check_account(self, account_id: str, sso_role: str = "") -> dict:
         """Check if we have a valid session for an account. Results cached for 30s."""
+        # Return cached result if fresh
         cache_key = f"{account_id}:{sso_role}"
         cached = self._status_cache.get(cache_key)
         if cached and (time.time() - cached["ts"]) < self._status_cache_ttl:

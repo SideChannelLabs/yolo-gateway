@@ -2,14 +2,14 @@ services:
   gateway:
     build: ./gateway
     ports:
-      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9000"
     volumes:
       # Host AWS credentials (read-only — gateway uses SSO tokens)
       - ${HOME}/.aws:/root/.aws-host:ro
       # Host SSH keys for git operations (read-only)
       - ${HOME}/.ssh:/root/.ssh-host:ro
       # Project manifests (YAML policy files)
-      - ./projects:/projects:ro
+      - ./projects:/projects
       # Shared workspace for cloned repos
       - ./workspace:/workspace
       # Persistent audit database

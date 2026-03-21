@@ -17,7 +17,6 @@ class AuditEntry:
     response_body: dict | None = None
     response_time_ms: int | None = None
     error_message: str | None = None
-    work_session_id: str | None = None
 
 
 class AuditLog:
@@ -48,8 +47,7 @@ class AuditLog:
                 response_body TEXT,
                 response_time_ms INTEGER,
                 action_prefix TEXT,
-                error_message TEXT,
-                work_session_id TEXT
+                error_message TEXT
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_project ON audit(project)")
@@ -57,49 +55,24 @@ class AuditLog:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_decision ON audit(decision)")
         conn.commit()
 
-    # Keys whose values should be redacted from audit logs
-    _SENSITIVE_KEYS = {
-        "accesstoken", "secretaccesskey", "sessiontoken", "credentials",
-        "password", "secret", "token", "authorization", "cookie",
-    }
-
-    @classmethod
-    def _redact(cls, obj, depth: int = 0):
-        """Recursively redact sensitive values from dicts/lists before logging."""
-        if depth > 10:
-            return obj
-        if isinstance(obj, dict):
-            return {
-                k: "***REDACTED***" if k.lower().replace("_", "").replace("-", "") in cls._SENSITIVE_KEYS
-                else cls._redact(v, depth + 1)
-                for k, v in obj.items()
-            }
-        if isinstance(obj, list):
-            return [cls._redact(item, depth + 1) for item in obj]
-        return obj
-
     def log(self, entry: AuditEntry):
         conn = self._get_conn()
         prefix = entry.action.split(":")[0] if ":" in entry.action else entry.action
 
-        # Redact sensitive data before persisting
-        safe_response = self._redact(entry.response_body) if entry.response_body else None
-        safe_request = self._redact(entry.request_body) if entry.request_body else None
-
         resp_str = None
-        if safe_response is not None:
-            resp_str = json.dumps(safe_response, default=str)
+        if entry.response_body is not None:
+            resp_str = json.dumps(entry.response_body, default=str)
             if len(resp_str) > 10240:
                 resp_str = resp_str[:10240] + "... [truncated]"
 
-        req_str = json.dumps(safe_request, default=str) if safe_request else None
+        req_str = json.dumps(entry.request_body, default=str) if entry.request_body else None
 
         conn.execute(
             """INSERT INTO audit
             (timestamp, project, decision, action, request_method, request_path,
              request_body, response_status, response_body, response_time_ms,
-             action_prefix, error_message, work_session_id)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+             action_prefix, error_message)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 datetime.now(timezone.utc).isoformat(),
                 entry.project,
@@ -113,7 +86,6 @@ class AuditLog:
                 entry.response_time_ms,
                 prefix,
                 entry.error_message,
-                entry.work_session_id,
             ),
         )
         conn.commit()
@@ -169,11 +141,7 @@ class AuditLog:
             params.append(decision)
         return conn.execute(sql, params).fetchone()[0]
 
-    _ALLOWED_GROUP_FIELDS = {"project", "decision", "action_prefix"}
-
     def count_by(self, field: str) -> dict:
-        if field not in self._ALLOWED_GROUP_FIELDS:
-            raise ValueError(f"Cannot group by '{field}' — allowed: {self._ALLOWED_GROUP_FIELDS}")
         conn = self._get_conn()
         rows = conn.execute(
             f"SELECT {field}, COUNT(*) as count FROM audit GROUP BY {field} ORDER BY count DESC"

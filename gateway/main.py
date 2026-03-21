@@ -3,11 +3,11 @@ import os
 import time
 from pathlib import Path
 
-import yaml
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from pydantic import BaseModel
 from starlette.types import ASGIApp, Receive, Scope, Send
+
+from pydantic import BaseModel
 
 from .audit import AuditEntry, AuditLog
 from .auth import AWSAuthManager
@@ -20,11 +20,7 @@ AUDIT_DB_PATH = os.environ.get("YOLO_AUDIT_DB", "/data/audit.db")
 AWS_CONFIG_PATH = os.environ.get("AWS_CONFIG_FILE", "/root/.aws/config")
 PROJECTS_DIR = os.environ.get("YOLO_PROJECTS_DIR", "/projects")
 
-# Optional API key auth — if set, all requests must include Authorization: Bearer <key>
-# Multiple keys supported (comma-separated)
-API_KEYS = [k.strip() for k in os.environ.get("YOLO_API_KEYS", "").split(",") if k.strip()]
-
-# Core components
+# Core components — manifest is optional (gateway can run without an active project)
 policy = PolicyEngine(MANIFEST_PATH if MANIFEST_PATH else None)
 audit = AuditLog(AUDIT_DB_PATH)
 aws_auth = AWSAuthManager(AWS_CONFIG_PATH)
@@ -32,20 +28,18 @@ aws_auth = AWSAuthManager(AWS_CONFIG_PATH)
 # Multi-project support: cache PolicyEngine per project name
 _project_policies: dict[str, PolicyEngine] = {}
 
-
 def get_policy_for_project(project_name: str) -> PolicyEngine:
     """Get or create a PolicyEngine for a project. Cached after first load."""
     if project_name in _project_policies:
         return _project_policies[project_name]
     manifest_path = os.path.join(PROJECTS_DIR, f"{project_name}.yml")
     if not os.path.exists(manifest_path):
-        return policy
+        return policy  # fall back to default
     pe = PolicyEngine(manifest_path)
     _project_policies[project_name] = pe
     return pe
 
-
-app = FastAPI(title="YOLO Gateway", description="Policy-based access gateway for Claude Code — AWS, Git, Slack, Gmail")
+app = FastAPI(title="YOLO Gateway", description="Policy-based access gateway for AWS and Git")
 app.state.audit = audit
 
 
@@ -54,11 +48,15 @@ async def startup():
     """Check SSO status and auto-pull repos on startup."""
     if not policy.has_project:
         print("  Gateway started in standalone mode (no active project)")
-        print("  Dashboard: http://localhost:9000/dashboard")
+        print(f"  Dashboard: http://localhost:9000/dashboard")
         print(f"  Manifests dir: {PROJECTS_DIR}")
         return
 
     accounts = policy.get_aws_accounts()
+    if not accounts:
+        print("  No AWS accounts configured")
+        return
+
     for acct in accounts:
         account_id = acct.get("account", "")
         acct_name = acct.get("name", account_id)
@@ -108,20 +106,6 @@ class AuditMiddleware:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
 
-        path = scope.get("path", "")
-
-        # API key auth — skip for health check and docs
-        if API_KEYS and path not in ("/health", "/docs", "/openapi.json"):
-            headers = dict(scope.get("headers", []))
-            auth_header = headers.get(b"authorization", b"").decode()
-            token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else ""
-            if token not in API_KEYS:
-                response_body = json.dumps({"detail": "Invalid or missing API key"}).encode()
-                await send({"type": "http.response.start", "status": 401,
-                            "headers": [[b"content-type", b"application/json"]]})
-                await send({"type": "http.response.body", "body": response_body})
-                return
-
         scope.setdefault("state", {})
 
         # Multi-project: resolve policy from X-Project header
@@ -138,7 +122,7 @@ class AuditMiddleware:
 
         path = scope["path"]
         # Skip auditing for non-proxied endpoints
-        if path in ("/", "/health") or path.startswith(("/dashboard", "/api/", "/auth/", "/favicon", "/docs", "/openapi")):
+        if path == "/" or path.startswith(("/dashboard", "/api/", "/auth/", "/favicon", "/docs", "/openapi")):
             return await self.app(scope, receive, send)
 
         start = time.time()
@@ -264,10 +248,11 @@ async def root():
 
 
 @app.get("/whoami")
-async def whoami():
-    if not policy.has_project:
+async def whoami(request: Request):
+    req_policy = request.state.policy
+    if not req_policy.has_project:
         return {"status": "no_active_project", "message": "Gateway running in standalone mode. Use POST /api/activate to select a project."}
-    return policy.describe_permissions()
+    return req_policy.describe_permissions()
 
 
 @app.get("/auth/status")
@@ -288,11 +273,15 @@ async def auth_status(account: str = ""):
     for acct in accounts:
         result = aws_auth.check_account(acct.get("account", ""), sso_role=acct.get("sso_role", ""))
         result["name"] = acct.get("name", acct.get("account", ""))
+        result["environment"] = acct.get("environment", "")
         results.append(result)
         if result.get("status") != "active":
             all_active = False
 
-    return {"status": "all_active" if all_active else "needs_login", "accounts": results}
+    return {
+        "status": "all_active" if all_active else "needs_login",
+        "accounts": results,
+    }
 
 
 @app.post("/auth/login")
@@ -366,6 +355,7 @@ async def get_stats():
         if account_id:
             result = aws_auth.check_account(account_id, sso_role=acct.get("sso_role", ""))
             result["name"] = acct.get("name", account_id)
+            result["environment"] = acct.get("environment", "")
             sso_accounts.append(result)
     all_active = all(a.get("status") == "active" for a in sso_accounts) if sso_accounts else True
     return {
@@ -406,6 +396,7 @@ async def get_manifest(project: str = ""):
         raise HTTPException(404, f"No manifest for project '{project}'")
     with open(path) as f:
         raw_yaml = f.read()
+    import yaml
     parsed = yaml.safe_load(raw_yaml)
     proj_name = parsed.get("project", {}).get("name", project or "unknown")
     active_path = _active_manifest_path()
@@ -421,6 +412,7 @@ async def get_manifest(project: str = ""):
 
 @app.get("/api/manifests")
 async def list_manifests():
+    import yaml
     projects = []
     active_path = _active_manifest_path()
     for f in sorted(Path(PROJECTS_DIR).glob("*.yml")):
@@ -443,6 +435,7 @@ class ManifestUpdate(BaseModel):
 
 @app.put("/api/manifest")
 async def update_manifest(req: ManifestUpdate):
+    import yaml
     try:
         parsed = yaml.safe_load(req.yaml)
     except yaml.YAMLError as e:
@@ -477,6 +470,7 @@ class ManifestCreate(BaseModel):
 
 @app.post("/api/manifest")
 async def create_manifest(req: ManifestCreate):
+    import yaml
     try:
         yaml.safe_load(req.yaml)
     except yaml.YAMLError as e:
@@ -527,6 +521,7 @@ DEFAULT_HOOK_MESSAGE = """═══ GATEWAY RULES ═══
 
 @app.get("/api/hook-message")
 async def get_hook_message(project: str = ""):
+    import yaml
     if project:
         path = os.path.join(PROJECTS_DIR, f"{project}.yml")
         if os.path.exists(path):
